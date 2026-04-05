@@ -3,8 +3,12 @@
 
   const STORAGE_KEY = "profiles";
   const THEME_STORAGE_KEY = "themePreference";
+  const AUTOSAVE_STORAGE_KEY = "autoSaveEnabled";
+  const VIEW_MODE_STORAGE_KEY = "detailedViewEnabled";
   const INITIAL_PROFILE_COUNT = 1;
-  const DEFAULT_THEME = "light";
+  const DEFAULT_THEME = "dark";
+  const DEFAULT_AUTOSAVE = true;
+  const DEFAULT_DETAILED_VIEW = true;
 
   const USERNAME_KEYWORDS = [
     "user",
@@ -114,12 +118,34 @@
   }
 
   function normalizeTheme(theme) {
-    return theme === "dark" ? "dark" : DEFAULT_THEME;
+    if (theme === "light" || theme === "dark") {
+      return theme;
+    }
+
+    return DEFAULT_THEME;
   }
 
   async function loadTheme() {
     const result = await storageGet([THEME_STORAGE_KEY]);
     return normalizeTheme(result[THEME_STORAGE_KEY]);
+  }
+
+  function normalizeAutoSavePreference(value) {
+    return value === false ? false : DEFAULT_AUTOSAVE;
+  }
+
+  async function loadAutoSavePreference() {
+    const result = await storageGet([AUTOSAVE_STORAGE_KEY]);
+    return normalizeAutoSavePreference(result[AUTOSAVE_STORAGE_KEY]);
+  }
+
+  function normalizeDetailedViewPreference(value) {
+    return value !== false;
+  }
+
+  async function loadDetailedViewPreference() {
+    const result = await storageGet([VIEW_MODE_STORAGE_KEY]);
+    return normalizeDetailedViewPreference(result[VIEW_MODE_STORAGE_KEY]);
   }
 
   async function saveTheme(theme) {
@@ -128,6 +154,22 @@
       [THEME_STORAGE_KEY]: normalizedTheme
     });
     return normalizedTheme;
+  }
+
+  async function saveAutoSavePreference(value) {
+    const normalizedValue = normalizeAutoSavePreference(value);
+    await storageSet({
+      [AUTOSAVE_STORAGE_KEY]: normalizedValue
+    });
+    return normalizedValue;
+  }
+
+  async function saveDetailedViewPreference(value) {
+    const normalizedValue = normalizeDetailedViewPreference(value);
+    await storageSet({
+      [VIEW_MODE_STORAGE_KEY]: normalizedValue
+    });
+    return normalizedValue;
   }
 
   function applyTheme(theme, root) {
@@ -415,48 +457,114 @@
     return form;
   }
 
-  function setNativeValue(element, value) {
-    if (!element) {
-      return;
+  function findValueSetter(element) {
+    let prototype = element ? Object.getPrototypeOf(element) : null;
+
+    while (prototype) {
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+      if (descriptor && typeof descriptor.set === "function") {
+        return descriptor.set;
+      }
+
+      prototype = Object.getPrototypeOf(prototype);
     }
 
-    const prototype = Object.getPrototypeOf(element);
-    const descriptor = prototype ? Object.getOwnPropertyDescriptor(prototype, "value") : null;
+    return null;
+  }
 
-    if (descriptor && typeof descriptor.set === "function") {
-      descriptor.set.call(element, value);
-    } else {
-      element.value = value;
+  function setNativeValue(element, value) {
+    if (!element) {
+      return false;
+    }
+
+    const nextValue = String(value);
+    const valueSetter = findValueSetter(element);
+
+    if (valueSetter) {
+      valueSetter.call(element, nextValue);
+    }
+
+    if (element.value !== nextValue) {
+      element.value = nextValue;
+    }
+
+    if (element.value !== nextValue && typeof element.setAttribute === "function") {
+      element.setAttribute("value", nextValue);
     }
 
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
+
+    return element.value === nextValue;
   }
 
-  function fillProfile(profile) {
-    const targetProfile = normalizeProfile(profile, 0);
-    const usernameField = findUsernameField(targetProfile, document);
-    const passwordField = findPasswordField(targetProfile, document);
-
-    if (!usernameField || !passwordField) {
-      return {
-        ok: false,
-        reason: "Login fields not found yet.",
-        profileId: targetProfile.id,
-        profileName: targetProfile.name
-      };
+  function isEditableTextField(element) {
+    if (!element || !(element instanceof HTMLElement)) {
+      return false;
     }
 
-    if (targetProfile.username !== "" && (targetProfile.overwriteExisting || !usernameField.value)) {
-      setNativeValue(usernameField, targetProfile.username);
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+      return false;
     }
 
-    if (targetProfile.password !== "" && (targetProfile.overwriteExisting || !passwordField.value)) {
-      setNativeValue(passwordField, targetProfile.password);
+    if (!isVisibleElement(element)) {
+      return false;
     }
 
-    usernameField.dataset.controllerAutofill = targetProfile.id;
-    passwordField.dataset.controllerAutofill = targetProfile.id;
+    const type = String(element.getAttribute("type") || "text").toLowerCase();
+    return ![
+      "hidden",
+      "password",
+      "button",
+      "submit",
+      "reset",
+      "checkbox",
+      "radio",
+      "file"
+    ].includes(type);
+  }
+
+  function focusField(element) {
+    if (!element || typeof element.focus !== "function") {
+      return;
+    }
+
+    try {
+      element.focus({ preventScroll: true });
+    } catch (error) {
+      element.focus();
+    }
+  }
+
+  function buildFillResult(targetProfile, ok, reason) {
+    return {
+      ok: ok,
+      reason: reason,
+      profileId: targetProfile.id,
+      profileName: targetProfile.name
+    };
+  }
+
+  function maybeFillField(field, value, overwriteExisting) {
+    if (!field || value === "") {
+      return false;
+    }
+
+    if (!overwriteExisting && field.value) {
+      return false;
+    }
+
+    return setNativeValue(field, value);
+  }
+
+  function finalizeFilledFields(targetProfile, usernameField, passwordField) {
+    if (usernameField) {
+      usernameField.dataset.controllerAutofill = targetProfile.id;
+    }
+
+    if (passwordField) {
+      passwordField.dataset.controllerAutofill = targetProfile.id;
+    }
 
     if (targetProfile.autoSubmit) {
       const submitTarget = findSubmitTarget(targetProfile, passwordField, document);
@@ -482,33 +590,122 @@
       }, 120);
     }
 
-    return {
-      ok: true,
-      reason: "Fields filled.",
-      profileId: targetProfile.id,
-      profileName: targetProfile.name
-    };
+    return buildFillResult(targetProfile, true, "Fields filled.");
+  }
+
+  function resolveContextStartElement(startElement, usernameField, passwordField) {
+    if (!isEditableTextField(startElement)) {
+      return null;
+    }
+
+    if (startElement === usernameField) {
+      return startElement;
+    }
+
+    const startForm = startElement.form || null;
+    const usernameForm = usernameField && usernameField.form ? usernameField.form : null;
+    const passwordForm = passwordField && passwordField.form ? passwordField.form : null;
+
+    if (startForm && (startForm === usernameForm || startForm === passwordForm)) {
+      return startElement;
+    }
+
+    return null;
+  }
+
+  function fillProfile(profile) {
+    const targetProfile = normalizeProfile(profile, 0);
+    const usernameField = findUsernameField(targetProfile, document);
+    const passwordField = findPasswordField(targetProfile, document);
+    let appliedChanges = false;
+
+    if (!usernameField || !passwordField) {
+      return buildFillResult(targetProfile, false, "Login fields not found yet.");
+    }
+
+    appliedChanges = maybeFillField(usernameField, targetProfile.username, targetProfile.overwriteExisting) || appliedChanges;
+
+    appliedChanges = maybeFillField(passwordField, targetProfile.password, targetProfile.overwriteExisting) || appliedChanges;
+
+    if (!appliedChanges) {
+      return buildFillResult(
+        targetProfile,
+        false,
+        targetProfile.username === "" && targetProfile.password === ""
+          ? "Matching profile found, but no username or password is saved yet."
+          : "Matching profile found, but no new values were applied."
+      );
+    }
+
+    return finalizeFilledFields(targetProfile, usernameField, passwordField);
+  }
+
+  function fillProfileFromContext(profile, startElement) {
+    const targetProfile = normalizeProfile(profile, 0);
+    const usernameField = findUsernameField(targetProfile, document);
+    const passwordField = findPasswordField(targetProfile, document);
+    const contextStartElement = resolveContextStartElement(startElement, usernameField, passwordField);
+    let appliedChanges = false;
+
+    if (!usernameField || !passwordField) {
+      return buildFillResult(targetProfile, false, "Login fields not found yet.");
+    }
+
+    if (!contextStartElement) {
+      return fillProfile(targetProfile);
+    }
+
+    focusField(contextStartElement);
+    appliedChanges = maybeFillField(contextStartElement, targetProfile.username, targetProfile.overwriteExisting) || appliedChanges;
+
+    if (passwordField !== contextStartElement) {
+      focusField(passwordField);
+    }
+
+    appliedChanges = maybeFillField(passwordField, targetProfile.password, targetProfile.overwriteExisting) || appliedChanges;
+
+    if (!appliedChanges) {
+      return buildFillResult(
+        targetProfile,
+        false,
+        targetProfile.username === "" && targetProfile.password === ""
+          ? "Matching profile found, but no username or password is saved yet."
+          : "Matching profile found, but no new values were applied."
+      );
+    }
+
+    return finalizeFilledFields(targetProfile, contextStartElement, passwordField);
   }
 
   global.ControllerAutofillShared = {
     STORAGE_KEY,
     THEME_STORAGE_KEY,
+    AUTOSAVE_STORAGE_KEY,
+    VIEW_MODE_STORAGE_KEY,
     INITIAL_PROFILE_COUNT,
     DEFAULT_THEME,
+    DEFAULT_AUTOSAVE,
+    DEFAULT_DETAILED_VIEW,
     createEmptyProfile,
     createSeedProfiles,
     normalizeProfile,
     normalizeProfiles,
     loadProfiles,
     normalizeTheme,
+    normalizeAutoSavePreference,
     loadTheme,
+    loadAutoSavePreference,
+    loadDetailedViewPreference,
     saveProfiles,
     saveTheme,
+    saveAutoSavePreference,
+    saveDetailedViewPreference,
     applyTheme,
     ensureSeedProfiles,
     splitPatterns,
     matchesProfile,
     findMatchingProfiles,
-    fillProfile
+    fillProfile,
+    fillProfileFromContext
   };
 })(globalThis);

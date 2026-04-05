@@ -3,36 +3,57 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Controller Login Autofill Options</title>
+    <title>WindFill Options</title>
+    <link rel="icon" type="image/png" href="icons/WindFillFav.png">
     <script src="theme-init.js"></script>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body class="options-shell">
-    <main class="page">
+    <main class="page options-page">
       <section class="hero-card">
         <div>
           <div class="brand-lockup">
-            <img class="brand-mark large" src="icons/icon128.png" alt="Controller Login Autofill logo">
+            <img class="brand-mark large" src="icons/WindFill.png" alt="WindFill logo">
             <div>
-              <p class="eyebrow">Local only</p>
               <h1>Configure your login profiles</h1>
+              <p class="hero-product-name">Local Only</p>
             </div>
           </div>
           <p class="lead">
             Add the IP or URL pattern for each profile and the extension will autofill username and password fully offline.
           </p>
+          <p class="maker-credit">Made by Luana Carolina Reis &hearts;</p>
         </div>
         <div class="hero-note">
           <p><strong>Pattern examples</strong></p>
-          <p><code>192.168.1.10</code></p>
-          <p><code>10.0.0.*</code></p>
+          <p><code>10.*.*.130</code></p>
+          <p><code>10.*.*.13*</code></p>
           <p><code>http://192.168.10.20/*</code></p>
         </div>
       </section>
 
       <section class="toolbar">
+        <div class="search-control">
+          <label class="search-shell" for="searchInput">
+            <span class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="6.5"></circle>
+                <path d="M16 16l5 5"></path>
+              </svg>
+            </span>
+            <input
+              id="searchInput"
+              class="search-input"
+              type="search"
+              placeholder="Search controllers, IPs, patterns or usernames"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </label>
+          <button id="clearSearchButton" class="button ghost mini search-clear-button" type="button">Clear</button>
+        </div>
         <div class="toolbar-actions">
-          <div id="saveStatus" class="inline-status">Ready.</div>
+          <div id="saveStatus" class="inline-status is-hidden" aria-live="polite"></div>
           <div class="theme-control">
             <span class="theme-label">Theme</span>
             <label class="theme-switch" for="themeToggle">
@@ -42,17 +63,99 @@
               <span class="theme-choice dark-choice">Dark</span>
             </label>
           </div>
-          <button id="seedProfilesButton" class="button ghost" type="button">Reset starter list</button>
+          <div class="view-control">
+            <span class="theme-label">View</span>
+            <label class="view-switch" for="toggleViewToggle">
+              <input id="toggleViewToggle" class="view-input" type="checkbox" aria-label="Enable detailed view">
+              <span class="view-choice simple-choice">Simple</span>
+              <span class="view-track"><span class="view-thumb"></span></span>
+              <span class="view-choice detailed-choice">Detailed</span>
+            </label>
+          </div>
+          <div class="view-control">
+            <span class="theme-label">Autosave</span>
+            <label class="view-switch" for="autoSaveToggle">
+              <input id="autoSaveToggle" class="view-input" type="checkbox" aria-label="Enable autosave">
+              <span class="view-choice simple-choice">Off</span>
+              <span class="view-track"><span class="view-thumb"></span></span>
+              <span class="view-choice detailed-choice">On</span>
+            </label>
+          </div>
+          <button id="seedProfilesButton" class="button ghost" type="button">Reset</button>
           <button id="addProfileButton" class="button ghost" type="button">Add profile</button>
-          <button id="toggleViewButton" class="button ghost" type="button">Simple view</button>
-          <button id="exportButton" class="button ghost" type="button">Export JSON</button>
-          <label class="button ghost file-button" for="importInput">Import JSON</label>
+          <button
+            id="exportButton"
+            class="button ghost transfer-button"
+            type="button"
+            title="Download all saved controller profiles as a JSON file"
+          >
+            Export JSON
+          </button>
+          <label
+            class="button ghost file-button transfer-button"
+            for="importInput"
+            title="Import controller profiles from a JSON file"
+          >
+            Import JSON
+          </label>
           <input id="importInput" type="file" accept=".json,application/json">
-          <button id="saveButton" class="button primary" type="button">Save</button>
+          <button
+            id="saveButton"
+            class="button primary icon-button save-icon-button"
+            type="button"
+            aria-label="Save now"
+            title="Save now"
+            data-title-autosave-on="Autosave is on. Click to save immediately if you want to make sure everything is written now."
+            data-title-autosave-off="Autosave is off. Click to save all current changes now."
+          >
+            <span class="sr-only">Save now</span>
+            <svg class="icon-button-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 3h11l3 3v15H5z"></path>
+              <path d="M8 3v6h8V3"></path>
+              <path d="M8 14h8v5H8z"></path>
+            </svg>
+          </button>
         </div>
       </section>
 
       <section id="profilesList" class="profiles-grid"></section>
+
+      <footer class="page-footer">
+        <div class="maker-credit footer-credit">
+          <p class="maker-credit-line">
+            Made by Luana Carolina Reis &hearts;
+            <img class="footer-flag footer-flag-image" src="icons/flag-pt.svg" alt="Portugal flag">
+          </p>
+          <p class="maker-credit-links">
+            <a
+              class="maker-credit-link"
+              href="https://github.com/luanacarolinareis/ControllerLoginAutofill"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <span class="maker-credit-separator">&bull;</span>
+            <a
+              class="maker-credit-link"
+              href="https://buymeacoffee.com/luanacarolina"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Buy Me a Coffee
+            </a>
+            <span class="maker-credit-separator">&bull;</span>
+            <a
+              class="maker-credit-link"
+              href="https://luanacarolina.me"
+              target="_blank"
+              rel="noreferrer"
+            >
+              luanacarolina.me
+            </a>
+          </p>
+        </div>
+      </footer>
     </main>
 
     <a

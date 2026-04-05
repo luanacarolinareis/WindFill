@@ -4,16 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Autofill Test Page</title>
+    <link rel="icon" type="image/png" href="../icons/WindFillFav.png">
     <style>
       :root {
         color-scheme: light;
-        --bg: #efe8db;
-        --panel: rgba(255, 250, 241, 0.92);
-        --ink: #1d1a16;
-        --muted: #665d52;
-        --accent: #a34a1f;
-        --line: rgba(92, 66, 44, 0.14);
-        --success: #22644b;
+        --panel: rgba(255, 255, 255, 0.88);
+        --ink: #172b38;
+        --muted: #607a89;
+        --accent-a: #1289e5;
+        --accent-b: #72c15e;
+        --line: rgba(36, 87, 116, 0.14);
+        --success: #1a7c76;
+        --field-bg: rgba(255, 255, 255, 0.94);
       }
 
       * {
@@ -29,8 +31,9 @@
         font-family: "Trebuchet MS", "Segoe UI", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(204, 122, 56, 0.16), transparent 28%),
-          linear-gradient(180deg, #f3ecdf 0%, #efe7db 100%);
+          radial-gradient(circle at top left, rgba(18, 137, 229, 0.16), transparent 30%),
+          radial-gradient(circle at right, rgba(114, 193, 94, 0.12), transparent 26%),
+          linear-gradient(180deg, #f2f7fa 0%, #edf4f8 100%);
       }
 
       .shell {
@@ -39,7 +42,7 @@
         border-radius: 24px;
         background: var(--panel);
         border: 1px solid var(--line);
-        box-shadow: 0 24px 60px rgba(77, 54, 36, 0.16);
+        box-shadow: 0 24px 60px rgba(16, 55, 80, 0.16);
       }
 
       h1,
@@ -49,6 +52,15 @@
 
       h1 {
         font-size: 2rem;
+      }
+
+      .eyebrow {
+        margin-bottom: 10px;
+        color: #1289e5;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
       }
 
       .lead {
@@ -74,8 +86,9 @@
         padding: 14px 16px;
         border-radius: 16px;
         border: 1px solid var(--line);
-        background: #fffdf7;
+        background: var(--field-bg);
         font: inherit;
+        color: var(--ink);
       }
 
       button {
@@ -83,8 +96,8 @@
         padding: 14px 18px;
         border: 0;
         border-radius: 999px;
-        background: linear-gradient(135deg, #a34a1f 0%, #7e3310 100%);
-        color: #fff8f0;
+        background: linear-gradient(135deg, var(--accent-a) 0%, var(--accent-b) 100%);
+        color: #f8fdff;
         font: inherit;
         cursor: pointer;
       }
@@ -93,7 +106,7 @@
         margin-top: 18px;
         padding: 14px 16px;
         border-radius: 16px;
-        background: rgba(255, 255, 255, 0.65);
+        background: rgba(255, 255, 255, 0.72);
         border: 1px solid var(--line);
         color: var(--muted);
         line-height: 1.45;
@@ -101,20 +114,23 @@
 
       .status.success {
         color: var(--success);
+        border-color: rgba(26, 124, 118, 0.24);
+        background: rgba(233, 251, 247, 0.92);
       }
 
       code {
         padding: 0.15rem 0.4rem;
         border-radius: 999px;
-        background: rgba(163, 74, 31, 0.12);
+        background: rgba(18, 137, 229, 0.12);
       }
     </style>
   </head>
   <body>
     <main class="shell">
+      <p class="eyebrow">WindFill test page</p>
       <h1>Basic Login Test</h1>
       <p class="lead">
-        Use this page to test automatic username/password fill and optional auto-submit.
+        This page was made to test automatic username/password fill and optional auto-submit.
       </p>
 
       <form id="loginForm">

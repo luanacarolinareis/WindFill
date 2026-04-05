@@ -3,6 +3,8 @@
 
   const pageUrl = document.getElementById("pageUrl");
   const statusPanel = document.getElementById("statusPanel");
+  const diagnosticsPanel = document.getElementById("diagnosticsPanel");
+  const diagnosticsToggleButton = document.getElementById("diagnosticsToggleButton");
   const exactUrl = document.getElementById("exactUrl");
   const diagnosticsText = document.getElementById("diagnosticsText");
   const profilesPanel = document.getElementById("profilesPanel");
@@ -172,10 +174,26 @@
     statusPanel.innerHTML = "<p class=\"status-label\">" + text + "</p>";
   }
 
-  function setDiagnostics(url, text) {
+  function setDiagnostics(kind, url, text) {
+    if (diagnosticsPanel) {
+      const isCollapsed = diagnosticsPanel.classList.contains("is-collapsed");
+      diagnosticsPanel.className = "diagnostics-panel " + (kind || "info") + (isCollapsed ? " is-collapsed" : "");
+    }
+
     exactUrl.textContent = url || "Unknown page";
     exactUrl.title = url || "";
     diagnosticsText.textContent = text;
+  }
+
+  function setDiagnosticsExpanded(expanded) {
+    if (!diagnosticsPanel || !diagnosticsToggleButton) {
+      return;
+    }
+
+    diagnosticsPanel.classList.toggle("is-collapsed", !expanded);
+    diagnosticsToggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+    diagnosticsToggleButton.setAttribute("aria-label", expanded ? "Hide page diagnostics" : "Show page diagnostics");
+    diagnosticsToggleButton.title = expanded ? "Hide page diagnostics" : "Show page diagnostics";
   }
 
   function isBrowserInternalUrl(rawUrl) {
@@ -264,7 +282,7 @@
 
       if (!tabs || tabs.length === 0) {
         pageUrl.textContent = "No active tab.";
-        setDiagnostics("", "Open a controller login page to inspect its exact URL and pattern matching.");
+        setDiagnostics("warning", "", "Open a controller login page to inspect its exact URL and pattern matching.");
         setStatus("warning", "Open a controller login page first.");
         renderProfiles([], false);
         fillButton.disabled = true;
@@ -285,7 +303,7 @@
       exactUrl.title = rawUrl || "";
 
       if (activeTabId === null) {
-        setDiagnostics(rawUrl, "This tab does not expose a normal webpage to the extension.");
+        setDiagnostics("warning", rawUrl, "This tab does not expose a normal webpage to the extension.");
         setStatus("warning", "Open a normal webpage to use autofill.");
         renderProfiles(locallyMatchedProfiles, false);
         fillButton.disabled = true;
@@ -294,7 +312,7 @@
 
       if (isBrowserInternalUrl(rawUrl)) {
         pageSupportsMessages = false;
-        setDiagnostics(rawUrl, "This is a browser or extension page. Chrome does not allow autofill scripts to run here.");
+        setDiagnostics("warning", rawUrl, "This is a browser or extension page. Chrome does not allow autofill scripts to run here.");
         setStatus("warning", "Open the real controller page, not a browser internal page.");
         matchedProfiles = locallyMatchedProfiles;
         renderProfiles(matchedProfiles, false);
@@ -312,13 +330,14 @@
 
         if (status && status.autoFillDone) {
           setStatus("success", "Autofill already ran on this page.");
-          setDiagnostics(rawUrl, "Pattern matched and the page allowed the extension to run.");
+          setDiagnostics("success", rawUrl, "Pattern matched and the page allowed the extension to run.");
         } else if (matchedProfiles.length > 0) {
           const reason = status && status.lastResult && status.lastResult.ok === false
             ? "Pattern matched. If fields stay empty, this page probably needs Advanced selectors."
             : "Pattern matched on this exact URL.";
           setStatus("info", "Profile matched. You can fill manually if needed.");
           setDiagnostics(
+            "info",
             rawUrl,
             pageState.recovered
               ? "Pattern matched. The extension reconnected to this page after reloading its page script."
@@ -326,7 +345,7 @@
           );
         } else {
           setStatus("warning", "No matching profile for this page.");
-          setDiagnostics(rawUrl, "No enabled profile matched this exact URL. Check the saved pattern lines carefully.");
+          setDiagnostics("warning", rawUrl, "No enabled profile matched this exact URL. Check the saved pattern lines carefully.");
         }
 
         fillButton.disabled = matchedProfiles.length === 0;
@@ -338,19 +357,20 @@
         if (locallyMatchedProfiles.length > 0) {
           setStatus("warning", "A pattern matches, but this page is blocking extension scripts.");
           setDiagnostics(
+            "warning",
             rawUrl,
             "The saved pattern matches this URL, but Chrome did not let the extension run here. If you see a certificate warning or browser interstitial, continue to the real page first. If you just reloaded the extension, refresh the controller page once."
           );
         } else {
           setStatus("warning", "Open one of the controller pages to use the extension.");
-          setDiagnostics(rawUrl, "No enabled profile matches this exact URL, and the extension could not inspect the page directly.");
+          setDiagnostics("warning", rawUrl, "No enabled profile matches this exact URL, and the extension could not inspect the page directly.");
         }
 
         fillButton.disabled = true;
       }
     } catch (error) {
       setStatus("warning", "Open one of the controller pages to use the extension.");
-      setDiagnostics("", "Could not inspect the current tab.");
+      setDiagnostics("warning", "", "Could not inspect the current tab.");
       renderProfiles([], false);
       fillButton.disabled = true;
     }
@@ -360,9 +380,17 @@
     await runFill(matchedProfiles.length > 0 ? matchedProfiles[0].id : null);
   });
 
+  if (diagnosticsToggleButton) {
+    diagnosticsToggleButton.addEventListener("click", () => {
+      const isExpanded = diagnosticsToggleButton.getAttribute("aria-expanded") === "true";
+      setDiagnosticsExpanded(!isExpanded);
+    });
+  }
+
   optionsButton.addEventListener("click", openOptionsPage);
   troubleshootingButton.addEventListener("click", openTroubleshootingPage);
 
   initTheme();
+  setDiagnosticsExpanded(false);
   loadPopupState();
 })();

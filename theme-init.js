@@ -2,7 +2,7 @@
   "use strict";
 
   const root = document.documentElement;
-  root.dataset.theme = "light";
+  root.dataset.theme = "dark";
 
   try {
     chrome.storage.local.get(["themePreference"], (result) => {
@@ -10,9 +10,9 @@
         return;
       }
 
-      root.dataset.theme = result.themePreference === "dark" ? "dark" : "light";
+      root.dataset.theme = result.themePreference === "light" ? "light" : "dark";
     });
   } catch (error) {
-    root.dataset.theme = "light";
+    root.dataset.theme = "dark";
   }
 })();

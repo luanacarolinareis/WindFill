@@ -10,6 +10,7 @@
   let autoFillDone = false;
   let scheduled = false;
   let lastResult = null;
+  let lastContextTarget = null;
 
   function profileSummary(profile) {
     return {
@@ -28,6 +29,7 @@
   async function attemptFill(options) {
     const settings = options && typeof options === "object" ? options : {};
     const requestedProfileId = settings.profileId || null;
+    const requestedMode = settings.mode || "auto";
     const profiles = await getMatchingProfiles();
     const candidates = requestedProfileId
       ? profiles.filter((profile) => profile.id === requestedProfileId)
@@ -43,7 +45,9 @@
     }
 
     for (const profile of candidates) {
-      const result = shared.fillProfile(profile);
+      const result = requestedMode === "context"
+        ? shared.fillProfileFromContext(profile, lastContextTarget || document.activeElement)
+        : shared.fillProfile(profile);
       if (result.ok) {
         autoFillDone = true;
         lastResult = {
@@ -123,8 +127,26 @@
       return true;
     }
 
+    if (message.type === "controller-autofill:contextFill") {
+      attemptFill({
+        profileId: message.profileId || null,
+        mode: "context"
+      }).then(sendResponse);
+      return true;
+    }
+
     return false;
   });
+
+  document.addEventListener(
+    "contextmenu",
+    (event) => {
+      if (event.target instanceof Element) {
+        lastContextTarget = event.target;
+      }
+    },
+    true
+  );
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleFill, { once: true });

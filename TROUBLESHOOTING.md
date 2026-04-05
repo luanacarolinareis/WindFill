@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common issues and quick fixes for `Controller Login Autofill`.
+Common issues and quick fixes for `WindFill`.
 
 ## The extension does not fill anything
 
@@ -25,6 +25,21 @@ Try this:
 4. Put that in `Username selector`.
 5. Do the same for `Password selector`.
 6. Save and refresh the page.
+
+## The popup says the page is blocking extension scripts
+
+This usually happens when the target tab was already open before the extension was reloaded.
+
+Try this:
+
+1. Open `chrome://extensions`
+2. Enable `Developer mode` if needed
+3. Click `Reload` on the extension
+4. Go back to the controller page
+5. Refresh the page
+6. Open the popup again and test once more
+
+If it still happens after that, make sure you are on the real controller page and not a browser warning or certificate page.
 
 ## Auto submit does not work
 

@@ -7,40 +7,51 @@
   const saveButton = document.getElementById("saveButton");
   const addProfileButton = document.getElementById("addProfileButton");
   const seedProfilesButton = document.getElementById("seedProfilesButton");
-  const toggleViewButton = document.getElementById("toggleViewButton");
+  const toggleViewToggle = document.getElementById("toggleViewToggle");
   const exportButton = document.getElementById("exportButton");
   const importInput = document.getElementById("importInput");
   const saveStatus = document.getElementById("saveStatus");
   const patternRowTemplate = document.getElementById("patternRowTemplate");
   const profileTemplate = document.getElementById("profileTemplate");
   const themeToggle = document.getElementById("themeToggle");
+  const autoSaveToggle = document.getElementById("autoSaveToggle");
+  const searchInput = document.getElementById("searchInput");
+  const clearSearchButton = document.getElementById("clearSearchButton");
+  const AUTO_SAVE_DELAY_MS = 700;
 
   const state = {
     profiles: [],
-    collapsedProfileIds: new Set()
+    collapsedProfileIds: new Set(),
+    searchQuery: "",
+    autoSaveEnabled: true,
+    detailedViewEnabled: true
   };
+
+  let autoSaveTimerId = null;
+  let saveQueue = Promise.resolve();
+  let hasUnsavedChanges = false;
 
   function getProfileById(profileId) {
     return state.profiles.find((profile) => profile.id === profileId) || null;
   }
 
-  function areAllProfilesCollapsed() {
-    return state.profiles.length > 0 && state.profiles.every((profile) => state.collapsedProfileIds.has(profile.id));
-  }
-
-  function updateViewToggleButton() {
-    if (!toggleViewButton) {
+  function updateViewToggleControl() {
+    if (!toggleViewToggle) {
       return;
     }
+
+    toggleViewToggle.checked = state.detailedViewEnabled;
 
     if (state.profiles.length === 0) {
-      toggleViewButton.textContent = "Simple view";
-      toggleViewButton.disabled = true;
+      toggleViewToggle.disabled = true;
       return;
     }
 
-    toggleViewButton.disabled = false;
-    toggleViewButton.textContent = areAllProfilesCollapsed() ? "Detailed view" : "Simple view";
+    toggleViewToggle.disabled = false;
+  }
+
+  function persistDetailedViewPreference() {
+    return shared.saveDetailedViewPreference(state.detailedViewEnabled).catch(() => {});
   }
 
   function setProfileCollapsed(profileId, collapsed) {
@@ -50,7 +61,7 @@
       state.collapsedProfileIds.delete(profileId);
     }
 
-    updateViewToggleButton();
+    updateViewToggleControl();
   }
 
   function setAllProfilesCollapsed(collapsed) {
@@ -60,7 +71,9 @@
       state.profiles.forEach((profile) => state.collapsedProfileIds.add(profile.id));
     }
 
-    updateViewToggleButton();
+    state.detailedViewEnabled = !collapsed;
+    updateViewToggleControl();
+    void persistDetailedViewPreference();
   }
 
   function syncCollapsedProfiles() {
@@ -68,7 +81,7 @@
     state.collapsedProfileIds = new Set(
       Array.from(state.collapsedProfileIds).filter((profileId) => validIds.has(profileId))
     );
-    updateViewToggleButton();
+    updateViewToggleControl();
   }
 
   function applyThemeToUi(theme) {
@@ -102,11 +115,150 @@
   }
 
   function setStatus(text, kind) {
-    saveStatus.textContent = text;
-    saveStatus.className = "inline-status " + (kind || "info");
+    const normalizedText = typeof text === "string" ? text.trim() : "";
+    const normalizedKind = kind || "info";
+    const shouldShow = normalizedText !== "" && normalizedKind === "warning";
+
+    saveStatus.textContent = shouldShow ? normalizedText : "";
+    saveStatus.className = shouldShow
+      ? "inline-status " + normalizedKind
+      : "inline-status is-hidden";
+  }
+
+  function queueSave(task) {
+    saveQueue = saveQueue
+      .catch(() => {})
+      .then(task);
+
+    return saveQueue;
+  }
+
+  function normalizeCurrentProfiles() {
+    return state.profiles.map((profile, index) => shared.normalizeProfile(profile, index));
+  }
+
+  function normalizeSearchQuery(query) {
+    return String(query || "").trim().toLowerCase();
+  }
+
+  function getProfileSearchText(profile) {
+    return [
+      profile.name,
+      profile.matchPattern,
+      profile.username,
+      profile.usernameSelector,
+      profile.passwordSelector,
+      profile.submitSelector
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .toLowerCase();
+  }
+
+  function getFilteredProfiles() {
+    const normalizedQuery = normalizeSearchQuery(state.searchQuery);
+
+    if (!normalizedQuery) {
+      return state.profiles;
+    }
+
+    return state.profiles.filter((profile) => getProfileSearchText(profile).includes(normalizedQuery));
+  }
+
+  function updateSearchControls() {
+    if (searchInput && searchInput.value !== state.searchQuery) {
+      searchInput.value = state.searchQuery;
+    }
+
+    if (clearSearchButton) {
+      const hasSearchQuery = normalizeSearchQuery(state.searchQuery) !== "";
+      clearSearchButton.disabled = !hasSearchQuery;
+    }
+  }
+
+  function updateAutoSaveControls() {
+    if (autoSaveToggle) {
+      autoSaveToggle.checked = state.autoSaveEnabled;
+    }
+
+    if (!saveButton) {
+      return;
+    }
+
+    const saveMessage = state.autoSaveEnabled
+      ? saveButton.dataset.titleAutosaveOn || "Autosave is on. Click to save immediately if you want to make sure everything is written now."
+      : saveButton.dataset.titleAutosaveOff || "Autosave is off. Click to save all current changes now.";
+
+    saveButton.title = saveMessage;
+    saveButton.setAttribute("aria-label", saveMessage);
+    saveButton.classList.toggle("manual-save-mode", !state.autoSaveEnabled);
+    saveButton.classList.toggle("has-pending-save", hasUnsavedChanges);
+  }
+
+  function markUnsavedChanges() {
+    hasUnsavedChanges = true;
+    updateAutoSaveControls();
+  }
+
+  async function persistProfiles(options) {
+    const settings = options && typeof options === "object" ? options : {};
+    const rerender = settings.rerender === true;
+    const normalized = normalizeCurrentProfiles();
+
+    await shared.saveProfiles(normalized);
+    state.profiles = normalized;
+    hasUnsavedChanges = false;
+    syncCollapsedProfiles();
+    setStatus("", "info");
+    updateAutoSaveControls();
+
+    if (rerender) {
+      renderProfiles();
+    }
+  }
+
+  async function saveProfiles(options) {
+    if (!hasUnsavedChanges) {
+      return saveQueue;
+    }
+
+    return queueSave(async () => {
+      try {
+        await persistProfiles(options);
+      } catch (error) {
+        setStatus("Could not save changes locally.", "warning");
+      }
+    });
+  }
+
+  function clearAutoSaveTimer() {
+    if (autoSaveTimerId !== null) {
+      window.clearTimeout(autoSaveTimerId);
+      autoSaveTimerId = null;
+    }
+  }
+
+  function scheduleAutoSave() {
+    markUnsavedChanges();
+    if (!state.autoSaveEnabled) {
+      clearAutoSaveTimer();
+      return;
+    }
+
+    clearAutoSaveTimer();
+    autoSaveTimerId = window.setTimeout(() => {
+      autoSaveTimerId = null;
+      void saveProfiles({ rerender: false });
+    }, AUTO_SAVE_DELAY_MS);
+  }
+
+  function saveProfilesNow(options) {
+    clearAutoSaveTimer();
+    return saveProfiles(options);
   }
 
   function updateProfile(profileId, field, value) {
+    markUnsavedChanges();
     state.profiles = state.profiles.map((profile) => {
       if (profile.id !== profileId) {
         return profile;
@@ -144,6 +296,7 @@
     if (updatedProfile && card) {
       renderProfileSummary(card, updatedProfile);
     }
+    scheduleAutoSave();
   }
 
   function renderPatternRows(card, profileId, values, focusIndex) {
@@ -236,6 +389,10 @@
 
   function renderProfiles() {
     profilesList.innerHTML = "";
+    updateSearchControls();
+
+    const filteredProfiles = getFilteredProfiles();
+    const hasSearchQuery = normalizeSearchQuery(state.searchQuery) !== "";
 
     if (state.profiles.length === 0) {
       const emptyState = document.createElement("article");
@@ -243,15 +400,42 @@
       emptyState.innerHTML =
         "<h2>No profiles yet</h2><p>Add a profile or reset the starter list to begin.</p>";
       profilesList.appendChild(emptyState);
-      updateViewToggleButton();
+      updateViewToggleControl();
       return;
     }
 
-    state.profiles.forEach((profile, index) => {
+    if (filteredProfiles.length === 0) {
+      const emptyState = document.createElement("article");
+      emptyState.className = "empty-state search-empty-state";
+      emptyState.innerHTML =
+        "<h2>No controllers found</h2><p>Try a different search term, or clear the search to see the full list again.</p>";
+
+      const clearButton = document.createElement("button");
+      clearButton.type = "button";
+      clearButton.className = "button ghost mini";
+      clearButton.textContent = "Clear search";
+      clearButton.addEventListener("click", () => {
+        state.searchQuery = "";
+        updateSearchControls();
+        renderProfiles();
+        if (searchInput) {
+          searchInput.focus();
+        }
+      });
+
+      emptyState.appendChild(clearButton);
+      profilesList.appendChild(emptyState);
+      updateViewToggleControl();
+      return;
+    }
+
+    filteredProfiles.forEach((profile) => {
       const fragment = profileTemplate.content.cloneNode(true);
       const card = fragment.querySelector(".profile-card");
+      const originalIndex = state.profiles.findIndex((entry) => entry.id === profile.id);
+      const displayIndex = originalIndex >= 0 ? originalIndex + 1 : 1;
 
-      fragment.querySelector(".card-index").textContent = "Controller " + (index + 1);
+      fragment.querySelector(".card-index").textContent = "Controller " + displayIndex;
       fragment.querySelector(".card-title").textContent = profile.name || "Unnamed controller";
       renderProfileSummary(card, profile);
       applyProfileCollapseState(card, profile.id);
@@ -279,6 +463,10 @@
           if (field === "name") {
             card.querySelector(".card-title").textContent = input.value || "Unnamed controller";
           }
+
+          if (!isCheckbox) {
+            scheduleAutoSave();
+          }
         });
 
         input.addEventListener("change", () => {
@@ -288,6 +476,8 @@
           if (updatedProfile) {
             renderProfileSummary(card, updatedProfile);
           }
+
+          scheduleAutoSave();
         });
       });
 
@@ -324,21 +514,42 @@
         state.profiles = state.profiles.filter((entry) => entry.id !== profile.id);
         state.collapsedProfileIds.delete(profile.id);
         renderProfiles();
+        scheduleAutoSave();
       });
 
       profilesList.appendChild(fragment);
     });
 
-    updateViewToggleButton();
+    if (!hasSearchQuery) {
+      const addProfileCard = document.createElement("button");
+      addProfileCard.type = "button";
+      addProfileCard.className = "profile-card add-profile-card";
+      addProfileCard.setAttribute("aria-label", "Add a new controller profile");
+      addProfileCard.innerHTML =
+        "<span class=\"card-index\">Quick add</span>" +
+        "<span class=\"add-profile-mark\" aria-hidden=\"true\">+</span>" +
+        "<span class=\"add-profile-title\">Add controller</span>" +
+        "<span class=\"add-profile-copy\">Quickly add another controller profile.</span>";
+      addProfileCard.addEventListener("click", addNewProfile);
+      profilesList.appendChild(addProfileCard);
+    }
+
+    updateViewToggleControl();
   }
 
-  async function saveProfiles() {
-    const normalized = state.profiles.map((profile, index) => shared.normalizeProfile(profile, index));
-    await shared.saveProfiles(normalized);
-    state.profiles = normalized;
-    syncCollapsedProfiles();
-    setStatus("Saved locally.", "success");
+  function addNewProfile() {
+    const profile = shared.createEmptyProfile(state.profiles.length + 1);
+    const shouldStartCollapsed = !state.detailedViewEnabled;
+
+    state.profiles = [...state.profiles, profile];
+    if (shouldStartCollapsed) {
+      state.collapsedProfileIds.add(profile.id);
+    } else {
+      state.collapsedProfileIds.delete(profile.id);
+    }
+
     renderProfiles();
+    scheduleAutoSave();
   }
 
   function exportProfiles() {
@@ -366,9 +577,10 @@
         }
 
         state.profiles = parsed.map((profile, index) => shared.normalizeProfile(profile, index));
+        hasUnsavedChanges = true;
         state.collapsedProfileIds.clear();
         renderProfiles();
-        await saveProfiles();
+        await saveProfilesNow({ rerender: false });
       } catch (error) {
         setStatus("Import failed. Check the JSON file format.", "warning");
       }
@@ -379,41 +591,88 @@
 
   async function init() {
     await initTheme();
+    state.autoSaveEnabled = await shared.loadAutoSavePreference();
+    state.detailedViewEnabled = await shared.loadDetailedViewPreference();
     state.profiles = await shared.ensureSeedProfiles();
+    setAllProfilesCollapsed(!state.detailedViewEnabled);
     renderProfiles();
-    setStatus("Ready.", "info");
+    updateAutoSaveControls();
+    setStatus("", "info");
   }
 
   saveButton.addEventListener("click", async () => {
-    await saveProfiles();
+    await saveProfilesNow({ rerender: false });
   });
 
-  addProfileButton.addEventListener("click", () => {
-    const profile = shared.createEmptyProfile(state.profiles.length + 1);
-    state.profiles = [...state.profiles, profile];
-    state.collapsedProfileIds.delete(profile.id);
-    renderProfiles();
-    setStatus("Unsaved changes.", "info");
-  });
+  addProfileButton.addEventListener("click", addNewProfile);
 
-  toggleViewButton.addEventListener("click", () => {
-    setAllProfilesCollapsed(!areAllProfilesCollapsed());
+  if (autoSaveToggle) {
+    autoSaveToggle.addEventListener("change", async () => {
+      state.autoSaveEnabled = autoSaveToggle.checked;
+      updateAutoSaveControls();
+      clearAutoSaveTimer();
+      await shared.saveAutoSavePreference(state.autoSaveEnabled);
+
+      if (state.autoSaveEnabled && hasUnsavedChanges) {
+        scheduleAutoSave();
+      }
+    });
+  }
+
+  toggleViewToggle.addEventListener("change", () => {
+    setAllProfilesCollapsed(!toggleViewToggle.checked);
     renderProfiles();
   });
 
   seedProfilesButton.addEventListener("click", async () => {
-    const confirmed = window.confirm("Replace the current list with a fresh starter profile?");
+    const confirmed = window.confirm(
+      "Reset the list and restore default settings? This will set dark theme, autosave on, and detailed view."
+    );
     if (!confirmed) {
       return;
     }
 
+    clearAutoSaveTimer();
+    applyThemeToUi(shared.DEFAULT_THEME);
+    state.autoSaveEnabled = shared.DEFAULT_AUTOSAVE;
+    state.detailedViewEnabled = shared.DEFAULT_DETAILED_VIEW;
     state.profiles = shared.createSeedProfiles(shared.INITIAL_PROFILE_COUNT);
+    hasUnsavedChanges = true;
     state.collapsedProfileIds.clear();
+    setAllProfilesCollapsed(!state.detailedViewEnabled);
+    updateAutoSaveControls();
     renderProfiles();
-    await saveProfiles();
+    await Promise.all([
+      shared.saveTheme(shared.DEFAULT_THEME),
+      shared.saveAutoSavePreference(state.autoSaveEnabled),
+      shared.saveDetailedViewPreference(state.detailedViewEnabled)
+    ]);
+    await saveProfilesNow({ rerender: false });
   });
 
   exportButton.addEventListener("click", exportProfiles);
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      state.searchQuery = searchInput.value;
+      renderProfiles();
+    });
+  }
+
+  if (clearSearchButton) {
+    clearSearchButton.addEventListener("click", () => {
+      if (!normalizeSearchQuery(state.searchQuery)) {
+        return;
+      }
+
+      state.searchQuery = "";
+      updateSearchControls();
+      renderProfiles();
+      if (searchInput) {
+        searchInput.focus();
+      }
+    });
+  }
 
   importInput.addEventListener("change", async () => {
     const file = importInput.files && importInput.files[0] ? importInput.files[0] : null;
@@ -423,6 +682,18 @@
 
     importProfiles(file);
     importInput.value = "";
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && state.autoSaveEnabled) {
+      void saveProfilesNow({ rerender: false });
+    }
+  });
+
+  window.addEventListener("pagehide", () => {
+    if (state.autoSaveEnabled) {
+      void saveProfilesNow({ rerender: false });
+    }
   });
 
   init();

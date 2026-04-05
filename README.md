@@ -1,13 +1,18 @@
-# Controller Login Autofill
+# WindFill
 
-Offline Chrome extension to autofill `username` and `password` on login pages reached by IP or URL pattern.
+Made by Luana Carolina Reis ♥
+
+WindFill is an offline Chrome extension to autofill `username` and `password` on login pages reached by IP or URL pattern.
 
 ## Table of contents
 
+- [Preview](#preview)
 - [What it does](#what-it-does)
 - [Clone the repository](#clone-the-repository)
 - [Install offline](#install-offline)
-- [Pack into CRX offline](#pack-into-crx-offline)
+- [Popup and quick actions](#popup-and-quick-actions)
+- [Options page features](#options-page-features)
+- [Right-click fill](#right-click-fill)
 - [Pattern examples](#pattern-examples)
 - [Troubleshooting](#troubleshooting)
 - [Import and export JSON](#import-and-export-json)
@@ -25,6 +30,16 @@ Offline Chrome extension to autofill `username` and `password` on login pages re
 - [Practical workflow](#practical-workflow)
 - [Tip](#tip)
 
+## Preview
+
+### Options page
+
+<img src="config-preview.png" alt="WindFill options page preview" width="760">
+
+### Popup
+
+<img src="popup-preview.png" alt="WindFill popup preview" width="360">
+
 ## What it does
 
 - Works fully offline after installation.
@@ -33,6 +48,11 @@ Offline Chrome extension to autofill `username` and `password` on login pages re
 - Autofills simple login forms with `username` and `password`.
 - Can optionally auto-submit after filling.
 - Includes an options page to manage any number of profiles.
+- Supports multiple patterns per profile with add/remove controls in the UI.
+- Includes a popup with matching profiles, manual fill, and page diagnostics.
+- Includes search, simple/detailed view, quick add, and built-in troubleshooting.
+- Includes autosave, manual save, and a reset action that restores default settings.
+- Includes a right-click context menu action to trigger fill from the page.
 - Includes JSON import/export so profiles can be moved between servers.
 - Includes a light and dark theme switch for the extension UI.
 
@@ -45,13 +65,15 @@ cd ControllerLoginAutofill
 
 ## Install offline
 
+Main offline install method:
+
 1. Open `chrome://extensions`.
 2. Enable `Developer mode`.
 3. Click `Load unpacked`.
 4. Select the root folder of the repository.
 5. Open the extension options and add as many profiles as needed.
 
-## Pack into CRX offline
+If the target machine blocks `Load unpacked`, you can package the extension as a `.crx` from the same screen:
 
 1. Open `chrome://extensions`.
 2. Enable `Developer mode`.
@@ -59,7 +81,40 @@ cd ControllerLoginAutofill
 4. Choose the root folder of the repository as the extension root.
 5. Chrome will generate a `.crx` file and a private key file.
 
-If the target machine blocks `Load unpacked`, use the generated `.crx`.
+## Popup and quick actions
+
+The popup is designed for fast checks and manual triggering on the current page.
+
+- Shows the current page URL.
+- Shows matching profiles for the current tab.
+- Includes `Fill best match` for one-click manual fill.
+- Includes a collapsible `Page diagnostics` section for match and script status.
+- Includes quick buttons for `Options` and built-in `Troubleshooting`.
+- Includes a theme toggle directly in the popup.
+
+## Options page features
+
+The options page now includes several quality-of-life features beyond basic profile editing.
+
+- `Search` filters controllers by name, pattern, username, and selector fields.
+- `View` switches between `Simple` and `Detailed` layouts.
+- `Autosave` can be enabled or disabled.
+- The save button can still be used manually as a `save now` action.
+- `Reset` recreates the starter list and restores default settings:
+  - dark theme
+  - autosave on
+  - detailed view
+- Each profile can contain multiple match patterns using `+ Add pattern`.
+- A quick-add card appears at the end of the grid to create a new controller faster.
+
+## Right-click fill
+
+WindFill also adds a context menu item in Chrome:
+
+- Right-click on a page or editable field
+- Choose `Fill login with WindFill`
+
+This uses the matching saved profile for that page and tries to fill the login form directly from the DOM.
 
 ## Pattern examples
 
@@ -67,8 +122,12 @@ If the target machine blocks `Load unpacked`, use the generated `.crx`.
 - Wildcard IP range: `10.0.0.*`
 - Full URL pattern: `http://192.168.1.10/*`
 - HTTPS URL pattern: `https://controller.local/*`
+- Specific controller host examples: `10.*.*.130`
+- Short wildcard example: `10.*.*.13*`
 
-Each profile can also contain multiple patterns separated by comma or new line.
+In the options UI, each profile can contain multiple patterns using one line per entry.
+
+The stored `matchPattern` value still supports multiple patterns separated by comma or new line when imported from JSON or edited manually.
 
 ## Troubleshooting
 
