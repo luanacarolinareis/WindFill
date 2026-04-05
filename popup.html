@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" class="popup-root">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Controller Login Autofill</title>
+    <script src="theme-init.js"></script>
+    <style>
+      html.popup-root,
+      html.popup-root body {
+        width: 360px;
+        min-width: 360px;
+        min-height: 420px;
+        margin: 0;
+        overflow-x: hidden;
+      }
+    </style>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="popup-shell">
+    <main class="popup-card">
+      <section class="popup-header">
+        <div class="brand-lockup compact">
+          <img class="brand-mark" src="icons/icon128.png" alt="Controller Login Autofill logo">
+          <div>
+            <p class="eyebrow">Offline Chrome extension</p>
+            <h1>Controller Login Autofill</h1>
+          </div>
+        </div>
+        <p class="lead page-url" id="pageUrl">Checking current page...</p>
+        <div class="theme-control compact">
+          <span class="theme-label">Theme</span>
+          <label class="theme-switch" for="themeToggle">
+            <span class="theme-choice light-choice">Light</span>
+            <input id="themeToggle" class="theme-input" type="checkbox" aria-label="Enable dark mode">
+            <span class="theme-track"><span class="theme-thumb"></span></span>
+            <span class="theme-choice dark-choice">Dark</span>
+          </label>
+        </div>
+      </section>
+
+      <section id="statusPanel" class="status-panel">
+        <p class="status-label">Waiting for page data...</p>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Matching profiles</h2>
+        </div>
+        <div id="profilesPanel" class="profile-list compact"></div>
+      </section>
+
+      <footer class="popup-actions">
+        <button id="fillButton" class="button primary" type="button">Fill best match</button>
+        <button id="optionsButton" class="button ghost" type="button">Open options</button>
+      </footer>
+    </main>
+
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

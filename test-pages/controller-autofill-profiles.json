@@ -1,0 +1,28 @@
+[
+  {
+    "id": "profile-mnl31kgh-ylr40q",
+    "name": "Basic Login Test",
+    "matchPattern": "http://127.0.0.1:8765/test-pages/basic-login.html",
+    "username": "admin",
+    "password": "admin",
+    "usernameSelector": "",
+    "passwordSelector": "",
+    "submitSelector": "",
+    "autoSubmit": false,
+    "enabled": true,
+    "overwriteExisting": true
+  },
+  {
+    "id": "profile-mnl37i2f-lqr6uf",
+    "name": "Custom Selector Test",
+    "matchPattern": "http://127.0.0.1:8765/test-pages/selector-login.html",
+    "username": "admin",
+    "password": "admin",
+    "usernameSelector": "#operator-code",
+    "passwordSelector": "#device-key",
+    "submitSelector": "#enter-device",
+    "autoSubmit": false,
+    "enabled": true,
+    "overwriteExisting": true
+  }
+]

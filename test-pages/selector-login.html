@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Selector Autofill Test</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #1f2329;
+        --panel: rgba(18, 21, 26, 0.88);
+        --ink: #f8efe4;
+        --muted: #c9b6a0;
+        --accent: #ffb04e;
+        --line: rgba(255, 255, 255, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(255, 176, 78, 0.18), transparent 24%),
+          linear-gradient(180deg, #191d22 0%, #101317 100%);
+      }
+
+      .shell {
+        width: min(100%, 460px);
+        padding: 28px;
+        border-radius: 24px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      .lead {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      form {
+        display: grid;
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      input {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      button {
+        margin-top: 8px;
+        padding: 14px 18px;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #ffb04e 0%, #f07d1a 100%);
+        color: #22170e;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .status {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      code {
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        background: rgba(255, 176, 78, 0.16);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>Custom Selector Test</h1>
+      <p class="lead">
+        This page uses unusual field names so you can test the advanced selector settings.
+      </p>
+
+      <form id="oddLoginForm">
+        <input id="operator-code" name="operator-code" type="text" placeholder="operator code">
+        <input id="device-key" name="device-key" type="password" placeholder="device key">
+        <button id="enter-device" type="submit">Enter device</button>
+      </form>
+
+      <section id="status" class="status">
+        Suggested selectors: <code>#operator-code</code>, <code>#device-key</code>, <code>#enter-device</code>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("oddLoginForm");
+      const status = document.getElementById("status");
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        status.innerHTML = "Submit intercepted. Advanced selectors worked.";
+      });
+    </script>
+  </body>
+</html>

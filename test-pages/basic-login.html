@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Autofill Test Page</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #efe8db;
+        --panel: rgba(255, 250, 241, 0.92);
+        --ink: #1d1a16;
+        --muted: #665d52;
+        --accent: #a34a1f;
+        --line: rgba(92, 66, 44, 0.14);
+        --success: #22644b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(204, 122, 56, 0.16), transparent 28%),
+          linear-gradient(180deg, #f3ecdf 0%, #efe7db 100%);
+      }
+
+      .shell {
+        width: min(100%, 440px);
+        padding: 28px;
+        border-radius: 24px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow: 0 24px 60px rgba(77, 54, 36, 0.16);
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .lead {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      form {
+        display: grid;
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      input {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: #fffdf7;
+        font: inherit;
+      }
+
+      button {
+        margin-top: 8px;
+        padding: 14px 18px;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #a34a1f 0%, #7e3310 100%);
+        color: #fff8f0;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .status {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.65);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .status.success {
+        color: var(--success);
+      }
+
+      code {
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        background: rgba(163, 74, 31, 0.12);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>Basic Login Test</h1>
+      <p class="lead">
+        Use this page to test automatic username/password fill and optional auto-submit.
+      </p>
+
+      <form id="loginForm">
+        <label>
+          <span>Username</span>
+          <input id="username" name="username" type="text" autocomplete="username" placeholder="admin">
+        </label>
+
+        <label>
+          <span>Password</span>
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="password">
+        </label>
+
+        <button id="loginButton" type="submit">Login</button>
+      </form>
+
+      <section id="status" class="status">
+        Waiting for autofill. If it works, the fields should populate automatically.
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("loginForm");
+      const username = document.getElementById("username");
+      const password = document.getElementById("password");
+      const status = document.getElementById("status");
+
+      function updateFieldStatus() {
+        const userValue = username.value ? "filled" : "empty";
+        const passValue = password.value ? "filled" : "empty";
+        status.textContent = "Current fields: username is " + userValue + " and password is " + passValue + ".";
+      }
+
+      username.addEventListener("input", updateFieldStatus);
+      password.addEventListener("input", updateFieldStatus);
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        status.className = "status success";
+        status.innerHTML =
+          "Submit intercepted. Username: <code>" +
+          username.value.replace(/</g, "&lt;") +
+          "</code> | Password length: <code>" +
+          String(password.value.length) +
+          "</code>";
+      });
+    </script>
+  </body>
+</html>
