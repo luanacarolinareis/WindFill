@@ -111,6 +111,52 @@
     });
   }
 
+  function executeScriptFiles(tabId, files) {
+    return new Promise((resolve, reject) => {
+      if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+        reject(new Error("Scripting API unavailable."));
+        return;
+      }
+
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabId },
+          files: files
+        },
+        () => {
+          const error = chrome.runtime.lastError;
+          if (error) {
+            reject(new Error(error.message));
+            return;
+          }
+
+          resolve();
+        }
+      );
+    });
+  }
+
+  async function getPageStatus(tabId) {
+    return sendMessage(tabId, {
+      type: "controller-autofill:getStatus"
+    });
+  }
+
+  async function ensurePageStatus(tabId) {
+    try {
+      return {
+        status: await getPageStatus(tabId),
+        recovered: false
+      };
+    } catch (error) {
+      await executeScriptFiles(tabId, ["shared.js", "content.js"]);
+      return {
+        status: await getPageStatus(tabId),
+        recovered: true
+      };
+    }
+  }
+
   function openOptionsPage() {
     chrome.runtime.openOptionsPage();
   }
@@ -257,9 +303,8 @@
       }
 
       try {
-        const status = await sendMessage(activeTabId, {
-          type: "controller-autofill:getStatus"
-        });
+        const pageState = await ensurePageStatus(activeTabId);
+        const status = pageState.status;
 
         pageSupportsMessages = true;
         matchedProfiles = status && Array.isArray(status.matchedProfiles) ? status.matchedProfiles : locallyMatchedProfiles;
@@ -273,7 +318,12 @@
             ? "Pattern matched. If fields stay empty, this page probably needs Advanced selectors."
             : "Pattern matched on this exact URL.";
           setStatus("info", "Profile matched. You can fill manually if needed.");
-          setDiagnostics(rawUrl, reason);
+          setDiagnostics(
+            rawUrl,
+            pageState.recovered
+              ? "Pattern matched. The extension reconnected to this page after reloading its page script."
+              : reason
+          );
         } else {
           setStatus("warning", "No matching profile for this page.");
           setDiagnostics(rawUrl, "No enabled profile matched this exact URL. Check the saved pattern lines carefully.");
@@ -289,7 +339,7 @@
           setStatus("warning", "A pattern matches, but this page is blocking extension scripts.");
           setDiagnostics(
             rawUrl,
-            "The saved pattern matches this URL, but Chrome did not let the extension run here. If you see a certificate warning or browser interstitial, continue to the real page first."
+            "The saved pattern matches this URL, but Chrome did not let the extension run here. If you see a certificate warning or browser interstitial, continue to the real page first. If you just reloaded the extension, refresh the controller page once."
           );
         } else {
           setStatus("warning", "Open one of the controller pages to use the extension.");
