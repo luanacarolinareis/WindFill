@@ -2,6 +2,8 @@
 
 Use these pages to test the extension locally without needing the real controller websites.
 
+For common setup or matching problems, see [`../TROUBLESHOOTING.md`](../TROUBLESHOOTING.md).
+
 ## Start a local server
 
 Run this in the project root:

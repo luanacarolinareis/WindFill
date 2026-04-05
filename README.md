@@ -9,6 +9,7 @@ Offline Chrome extension to autofill `username` and `password` on login pages re
 - [Install offline](#install-offline)
 - [Pack into CRX offline](#pack-into-crx-offline)
 - [Pattern examples](#pattern-examples)
+- [Troubleshooting](#troubleshooting)
 - [Import and export JSON](#import-and-export-json)
 - [Export](#export)
 - [Import](#import)
@@ -68,6 +69,10 @@ If the target machine blocks `Load unpacked`, use the generated `.crx`.
 - HTTPS URL pattern: `https://controller.local/*`
 
 Each profile can also contain multiple patterns separated by comma or new line.
+
+## Troubleshooting
+
+For common errors and fixes, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Import and export JSON
 

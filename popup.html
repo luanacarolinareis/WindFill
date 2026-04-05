@@ -43,6 +43,17 @@
         <p class="status-label">Waiting for page data...</p>
       </section>
 
+      <section id="diagnosticsPanel" class="diagnostics-panel">
+        <div class="section-head">
+          <h2>Page diagnostics</h2>
+        </div>
+        <div class="diagnostics-copy">
+          <p class="diagnostics-label">Current URL</p>
+          <code id="exactUrl" class="diagnostics-url">Checking current page...</code>
+          <p id="diagnosticsText" class="diagnostics-text">Checking saved patterns and page access...</p>
+        </div>
+      </section>
+
       <section>
         <div class="section-head">
           <h2>Matching profiles</h2>
@@ -53,6 +64,7 @@
       <footer class="popup-actions">
         <button id="fillButton" class="button primary" type="button">Fill best match</button>
         <button id="optionsButton" class="button ghost" type="button">Open options</button>
+        <button id="troubleshootingButton" class="button ghost" type="button">Help</button>
       </footer>
     </main>
 

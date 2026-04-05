@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Controller Login Autofill Troubleshooting</title>
+    <script src="theme-init.js"></script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="options-shell">
+    <main class="page">
+      <section class="hero-card troubleshooting-hero">
+        <div>
+          <div class="brand-lockup">
+            <img class="brand-mark large" src="icons/icon128.png" alt="Controller Login Autofill logo">
+            <div>
+              <p class="eyebrow">Built-in help</p>
+              <h1>Troubleshooting</h1>
+            </div>
+          </div>
+          <p class="lead">
+            If autofill is not working, use this page to narrow it down quickly before changing a lot of settings.
+          </p>
+        </div>
+        <div class="hero-note">
+          <p><strong>Quick rule</strong></p>
+          <p>If the popup says no match, fix the pattern. If it matches but does not fill, add selectors.</p>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <div class="inline-status info">Most issues are either pattern matching or unusual field selectors.</div>
+        <div class="toolbar-actions">
+          <div class="theme-control">
+            <span class="theme-label">Theme</span>
+            <label class="theme-switch" for="themeToggle">
+              <span class="theme-choice light-choice">Light</span>
+              <input id="themeToggle" class="theme-input" type="checkbox" aria-label="Enable dark mode">
+              <span class="theme-track"><span class="theme-thumb"></span></span>
+              <span class="theme-choice dark-choice">Dark</span>
+            </label>
+          </div>
+          <button id="openOptionsButton" class="button primary" type="button">Open options</button>
+        </div>
+      </section>
+
+      <section class="help-grid">
+        <article class="help-card">
+          <h2>The popup says no matching profile</h2>
+          <p>Check the profile pattern first. The pattern must match the real page URL, not just the IP you remember.</p>
+          <ul class="help-list">
+            <li>Exact page: <code>http://192.168.1.130/login</code></li>
+            <li>All pages on one IP: <code>http://192.168.1.130/*</code></li>
+            <li>Host wildcard only: <code>10.0.0.*</code></li>
+          </ul>
+        </article>
+
+        <article class="help-card">
+          <h2>The profile matches, but fields stay empty</h2>
+          <p>The page probably uses unusual field names. Add selectors for the username and password fields.</p>
+          <ul class="help-list">
+            <li>Good selectors: <code>#username</code></li>
+            <li>Good selectors: <code>input[name="operator-code"]</code></li>
+            <li>Avoid brittle selectors like <code>div &gt; form &gt; input:nth-child(2)</code></li>
+          </ul>
+        </article>
+
+        <article class="help-card">
+          <h2>Auto submit does not work</h2>
+          <p>If filling works but the page does not continue, add a submit selector for the real login button.</p>
+          <ul class="help-list">
+            <li>Examples: <code>#loginBtn</code></li>
+            <li>Examples: <code>button[type="submit"]</code></li>
+            <li>Save the profile and refresh the page after changing it</li>
+          </ul>
+        </article>
+
+        <article class="help-card">
+          <h2>How to find selectors in Chrome</h2>
+          <p>Right-click the field, choose <strong>Inspect</strong>, then look for stable attributes like <code>id</code> or <code>name</code>.</p>
+          <ul class="help-list">
+            <li>Username examples: <code>#user</code>, <code>input[name="username"]</code></li>
+            <li>Password examples: <code>#pwd</code>, <code>input[type="password"]</code></li>
+            <li>Button examples: <code>#loginBtn</code>, <code>button[type="submit"]</code></li>
+          </ul>
+        </article>
+
+        <article class="help-card">
+          <h2>Quick debug checklist</h2>
+          <ul class="help-list">
+            <li>Is the profile enabled?</li>
+            <li>Did you click save?</li>
+            <li>Did you refresh the target page after saving?</li>
+            <li>Does the popup show a matching profile?</li>
+            <li>If it matches, do the fields need selectors?</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+
+    <script src="shared.js"></script>
+    <script src="troubleshooting.js"></script>
+  </body>
+</html>
