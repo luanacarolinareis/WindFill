@@ -911,7 +911,8 @@ label.search-shell:focus-within {
 
 .help-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(280px, 360px));
+  justify-content: center;
   gap: 18px;
   margin-bottom: 28px;
 }
@@ -1851,6 +1852,10 @@ label.search-shell .search-input:focus {
     justify-content: flex-start;
   }
 
+  .help-grid {
+    grid-template-columns: repeat(2, minmax(280px, 360px));
+  }
+
   .profiles-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1873,6 +1878,10 @@ label.search-shell .search-input:focus {
   .hero-aside {
     gap: 8px;
     padding-left: 110px;
+  }
+
+  .help-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero-note {
