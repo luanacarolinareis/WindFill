@@ -680,6 +680,14 @@
       return;
     }
 
+    const confirmed = window.confirm(
+      "Importing a JSON file will overwrite the current profiles shown in WindFill. Do you want to continue?"
+    );
+    if (!confirmed) {
+      importInput.value = "";
+      return;
+    }
+
     importProfiles(file);
     importInput.value = "";
   });
