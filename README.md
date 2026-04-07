@@ -42,8 +42,11 @@ WindFill currently provides:
 - Matching by exact host, wildcard host, exact URL, or wildcard URL.
 - Multiple patterns per profile.
 - Optional auto-submit after fields are filled.
-- A popup with matching profiles, manual fill, and page diagnostics.
-- An options page with search, simple/detailed views, autosave, reset, and incomplete-profile indicators.
+- A popup with matching profiles, exact matched patterns, last-used highlighting, manual fill, and page diagnostics.
+- An options page with search, simple/detailed views, autosave, sorting, notes, last-modified timestamps, and incomplete-profile indicators.
+- Duplicate and drag-reorder profile management.
+- Global best-match priority rules with draggable ranking.
+- Advanced-selector testing against currently open matching pages.
 - A built-in troubleshooting page.
 - Encrypted JSON export/import for profile transfer between machines, with legacy plaintext JSON import support.
 - A right-click context menu action to trigger fill from the page.
@@ -64,6 +67,7 @@ The statements below describe the current implementation in this repository.
 ### Data handling
 
 - Profiles and credentials are stored locally in `chrome.storage.local`.
+- Profile metadata such as notes, timestamps, sort preferences, view preferences, and best-match rules are also stored locally.
 - WindFill can export and import encrypted JSON files protected by a user-supplied passphrase.
 - Legacy plaintext JSON profile files are still accepted on import for backwards compatibility.
 - WindFill does not add its own encryption layer to credentials already stored in `chrome.storage.local`.
@@ -88,7 +92,7 @@ WindFill currently requests the following Chrome permissions:
 
 | Permission | Why it is used |
 | --- | --- |
-| `storage` | Save profiles, theme preference, autosave preference, and view preference locally. |
+| `storage` | Save profiles, credentials, notes, timestamps, theme/view/autosave preferences, sort settings, and best-match settings locally. |
 | `tabs` | Read the active tab URL and support popup diagnostics/manual fill actions. |
 | `scripting` | Reinject the local content scripts when a page was already open before extension reload. |
 | `contextMenus` | Provide the right-click action `Fill login with WindFill`. |
@@ -144,6 +148,8 @@ The popup is intended for fast checks and manual actions on the current tab.
 
 - Shows the current page URL.
 - Shows matching profiles for the current page.
+- Shows the exact saved pattern that matched the current page.
+- Highlights the most recently used profile when one is known.
 - Includes `Fill best match` for manual execution.
 - Includes a collapsible `Page diagnostics` section.
 - Includes quick access to `Options` and built-in `Troubleshooting`.
@@ -153,14 +159,20 @@ The popup is intended for fast checks and manual actions on the current tab.
 
 The options page is the main configuration surface.
 
-- Create and remove any number of profiles.
+- Create, duplicate, and remove any number of profiles.
 - Add multiple match patterns per profile.
 - Search by controller name, pattern, username, or selector text.
+- Add free-form notes to each profile.
+- Review the `Last modified` timestamp for each profile.
 - Switch between `Simple` and `Detailed` profile views.
 - Enable or disable `Autosave`.
+- Reorder profiles by drag and drop when `Order by` is set to `Manual`.
+- Sort profiles by `Name` or `Last modified`, in ascending or descending order.
+- Configure global `Best match priority` rules and drag them into the preferred ranking order.
 - See incomplete-profile indicators when a pattern, username, or password is missing.
+- Test advanced selectors against an already open matching page.
 - Use the save button for an immediate manual save.
-- Use `Reset` to restore the starter list and default UI settings.
+- Use `Reset` to clear all profiles and restore the default UI settings.
 
 ### Right-click action
 
@@ -170,6 +182,22 @@ WindFill also adds a context menu action:
 2. Choose `Fill login with WindFill`.
 
 This uses the matching saved profile for that page and attempts to fill the visible login form directly from the DOM.
+
+### Best match priority and ordering
+
+WindFill applies one global ranking policy whenever more than one enabled profile matches the same page.
+
+- `Pattern specificity` prefers more exact matches over broader wildcard matches.
+- `Last modified` can prefer either the most recently updated profiles or the oldest ones.
+- `Saved login data` can prefer complete profiles or profiles that still have missing credentials.
+
+In the options page, these rules can be dragged into the preferred ranking order under `Best match priority`. The same policy is then used for:
+
+- automatic page autofill
+- `Fill best match` in the popup
+- the order of `Matching profiles` shown in the popup
+
+Profile ordering in the options page is separate from match ranking. `Order by` only changes how the configuration list is displayed.
 
 ## Pattern examples
 
@@ -214,6 +242,7 @@ Important notes:
 - Imported profiles are then saved to `chrome.storage.local`.
 - Encrypted WindFill exports are the default format.
 - Legacy plaintext JSON arrays are still supported on import.
+- Profile metadata such as `createdAt`, `lastModifiedAt`, `notes`, and matching settings travels with the exported profiles.
 - Invalid JSON or unsupported payloads are rejected.
 
 ### Encrypted export example
@@ -238,9 +267,12 @@ Important notes:
   {
     "id": "profile-example-1",
     "name": "Main controller",
+    "createdAt": "2026-04-07T00:00:00.000Z",
+    "lastModifiedAt": "2026-04-07T00:15:30.000Z",
     "matchPattern": "http://192.168.1.10/*",
     "username": "admin",
     "password": "secret",
+    "notes": "Primary maintenance access",
     "usernameSelector": "",
     "passwordSelector": "",
     "submitSelector": "",

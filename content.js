@@ -17,13 +17,17 @@
       id: profile.id,
       name: profile.name,
       matchPattern: profile.matchPattern,
+      matchedPattern: profile.matchedPattern || "",
       autoSubmit: profile.autoSubmit
     };
   }
 
   async function getMatchingProfiles() {
-    const profiles = await shared.loadProfiles();
-    return shared.findMatchingProfiles(window.location.href, profiles);
+    const [profiles, matchPreferences] = await Promise.all([
+      shared.loadProfiles(),
+      shared.loadMatchPreferenceSettings()
+    ]);
+    return shared.findMatchingProfiles(window.location.href, profiles, matchPreferences);
   }
 
   async function attemptFill(options) {
@@ -133,6 +137,22 @@
         mode: "context"
       }).then(sendResponse);
       return true;
+    }
+
+    if (message.type === "controller-autofill:testSelectors") {
+      try {
+        sendResponse({
+          ok: true,
+          url: window.location.href,
+          result: shared.testProfileSelectors(message.profile || {}, document)
+        });
+      } catch (error) {
+        sendResponse({
+          ok: false,
+          reason: "Could not test selectors on this page."
+        });
+      }
+      return false;
     }
 
     return false;

@@ -132,6 +132,53 @@
         </div>
       </section>
 
+      <section id="matchPriorityPanel" class="match-priority-panel is-collapsed">
+        <div class="section-head">
+          <div>
+            <h2>Best match priority</h2>
+            <p class="match-priority-copy">Drag the rules to choose how WindFill ranks matching profiles globally.</p>
+          </div>
+          <button
+            id="matchPriorityToggleButton"
+            class="button ghost icon-button diagnostics-toggle-button"
+            type="button"
+            aria-label="Show best match priority"
+            aria-expanded="false"
+            title="Show best match priority"
+          >
+            <span class="sr-only">Toggle best match priority</span>
+            <svg class="icon-button-mark diagnostics-icon diagnostics-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <svg class="icon-button-mark diagnostics-icon diagnostics-icon-minus" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="matchPriorityList" class="match-priority-list"></div>
+      </section>
+
+      <section class="sort-toolbar-row">
+        <div class="sort-control-group">
+          <label class="sort-control" for="sortBySelect">
+            <span class="theme-label">Order by</span>
+            <select id="sortBySelect" class="toolbar-select" aria-label="Order controllers by">
+              <option value="manual">Manual</option>
+              <option value="name">Name</option>
+              <option value="lastModifiedAt">Last modified</option>
+            </select>
+          </label>
+          <label class="sort-control" for="sortDirectionSelect">
+            <span class="theme-label">Direction</span>
+            <select id="sortDirectionSelect" class="toolbar-select" aria-label="Sort direction">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <section id="profilesList" class="profiles-grid"></section>
 
       <footer class="page-footer">
@@ -201,9 +248,21 @@
           <div class="card-title-wrap">
             <p class="card-index"></p>
             <h2 class="card-title"></h2>
+            <p class="profile-created-at"></p>
             <p class="profile-health-copy" hidden></p>
           </div>
           <div class="card-actions">
+            <button class="button mini ghost drag-profile-handle" type="button" aria-label="Drag to reorder" title="Drag to reorder">
+              <svg class="drag-handle-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="5" cy="3.25" r="1.1"></circle>
+                <circle cx="11" cy="3.25" r="1.1"></circle>
+                <circle cx="5" cy="8" r="1.1"></circle>
+                <circle cx="11" cy="8" r="1.1"></circle>
+                <circle cx="5" cy="12.75" r="1.1"></circle>
+                <circle cx="11" cy="12.75" r="1.1"></circle>
+              </svg>
+            </button>
+            <button class="button mini ghost duplicate-profile" type="button">Duplicate</button>
             <button class="button mini ghost profile-visibility-button" type="button" aria-expanded="true">Collapse</button>
             <button class="button mini danger remove-profile" type="button">Remove</button>
           </div>
@@ -258,6 +317,11 @@
                 </button>
               </div>
             </label>
+
+            <label class="notes-field full-span">
+              <span>Notes</span>
+              <textarea data-field="notes" rows="2" placeholder="Optional notes about this controller, site, location or access context"></textarea>
+            </label>
           </div>
 
           <details class="advanced-panel">
@@ -277,6 +341,10 @@
                 <span>Submit selector</span>
                 <input data-field="submitSelector" type="text" placeholder="Optional CSS selector">
               </label>
+            </div>
+            <div class="advanced-actions">
+              <button class="button mini ghost test-selectors-button" type="button">Test selectors</button>
+              <p class="selector-test-status is-hidden" data-selector-test-status aria-live="polite"></p>
             </div>
           </details>
 
@@ -321,6 +389,29 @@
             </label>
           </div>
         </div>
+      </article>
+    </template>
+
+    <template id="matchPriorityRuleTemplate">
+      <article class="match-rule-item">
+        <button class="button mini ghost match-rule-drag-handle" type="button" aria-label="Drag to reorder match rules" title="Drag to reorder match rules">
+          <svg class="drag-handle-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="5" cy="3.25" r="1.1"></circle>
+            <circle cx="11" cy="3.25" r="1.1"></circle>
+            <circle cx="5" cy="8" r="1.1"></circle>
+            <circle cx="11" cy="8" r="1.1"></circle>
+            <circle cx="5" cy="12.75" r="1.1"></circle>
+            <circle cx="11" cy="12.75" r="1.1"></circle>
+          </svg>
+        </button>
+        <div class="match-rule-copy">
+          <p class="match-rule-title"></p>
+          <p class="match-rule-description"></p>
+        </div>
+        <label class="match-rule-mode">
+          <span class="sr-only">Rule mode</span>
+          <select class="toolbar-select match-rule-select"></select>
+        </label>
       </article>
     </template>
 

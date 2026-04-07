@@ -16,6 +16,7 @@
   let activeTabId = null;
   let matchedProfiles = [];
   let pageSupportsMessages = false;
+  let lastFilledProfileId = null;
 
   function applyThemeToUi(theme) {
     if (!globalThis.ControllerAutofillShared) {
@@ -169,8 +170,9 @@
     });
   }
 
-  function setStatus(kind, text) {
-    statusPanel.className = "status-panel " + kind;
+  function setStatus(kind, text, plain) {
+    const usePlainStyle = typeof plain === "boolean" ? plain : kind !== "warning";
+    statusPanel.className = "status-panel " + kind + (usePlainStyle ? " is-plain" : "");
     statusPanel.innerHTML = "<p class=\"status-label\">" + text + "</p>";
   }
 
@@ -205,7 +207,7 @@
     );
   }
 
-  function renderProfiles(profiles, allowFill) {
+  function renderProfiles(profiles, allowFill, highlightedProfileId) {
     profilesPanel.innerHTML = "";
 
     if (!profiles || profiles.length === 0) {
@@ -213,18 +215,36 @@
       return;
     }
 
+    const shouldHighlightLastFilled = Boolean(highlightedProfileId);
+
     profiles.forEach((profile) => {
       const article = document.createElement("article");
       article.className = "profile-chip";
+      const isLastFilled = shouldHighlightLastFilled && profile.id === highlightedProfileId;
+      article.classList.toggle("is-last-filled", isLastFilled);
 
       const title = document.createElement("div");
       title.className = "chip-copy";
-      title.innerHTML =
-        "<strong>" +
-        escapeHtml(profile.name || "Unnamed profile") +
-        "</strong><span>" +
-        escapeHtml(profile.matchPattern || "No pattern") +
-        "</span>";
+      const matchedPatternText = profile.matchedPattern
+        ? "Matched: " + profile.matchedPattern
+        : profile.matchPattern || "No pattern";
+      const titleStrong = document.createElement("strong");
+      titleStrong.textContent = profile.name || "Unnamed profile";
+
+      if (isLastFilled) {
+        const badge = document.createElement("span");
+        badge.className = "profile-chip-badge";
+        badge.textContent = "Last used";
+        titleStrong.appendChild(document.createTextNode(" "));
+        titleStrong.appendChild(badge);
+      }
+
+      const titleSubtitle = document.createElement("span");
+      titleSubtitle.textContent = matchedPatternText;
+
+      title.appendChild(titleStrong);
+      title.appendChild(titleSubtitle);
+      title.title = profile.matchPattern || "";
 
       const button = document.createElement("button");
       button.className = "button mini";
@@ -263,7 +283,12 @@
       });
 
       if (response && response.ok) {
-        setStatus("success", "Filled " + escapeHtml(response.profileName || "matching profile") + ".");
+        if (Array.isArray(response.matchedProfiles) && response.matchedProfiles.length > 0) {
+          matchedProfiles = response.matchedProfiles;
+        }
+        lastFilledProfileId = response.profileId || profileId || null;
+        renderProfiles(matchedProfiles, pageSupportsMessages, lastFilledProfileId);
+        setStatus("success", "Filled " + escapeHtml(response.profileName || "matching profile") + ".", true);
         return;
       }
 
@@ -284,7 +309,8 @@
         pageUrl.textContent = "No active tab.";
         setDiagnostics("warning", "", "Open a controller login page to inspect its exact URL and pattern matching.");
         setStatus("warning", "Open a controller login page first.");
-        renderProfiles([], false);
+        lastFilledProfileId = null;
+        renderProfiles([], false, lastFilledProfileId);
         fillButton.disabled = true;
         return;
       }
@@ -292,9 +318,12 @@
       const activeTab = tabs[0];
       activeTabId = typeof activeTab.id === "number" ? activeTab.id : null;
       const rawUrl = activeTab.url || "";
-      const allProfiles = await globalThis.ControllerAutofillShared.loadProfiles();
+      const [allProfiles, matchPreferences] = await Promise.all([
+        globalThis.ControllerAutofillShared.loadProfiles(),
+        globalThis.ControllerAutofillShared.loadMatchPreferenceSettings()
+      ]);
       const locallyMatchedProfiles = rawUrl
-        ? globalThis.ControllerAutofillShared.findMatchingProfiles(rawUrl, allProfiles)
+        ? globalThis.ControllerAutofillShared.findMatchingProfiles(rawUrl, allProfiles, matchPreferences)
         : [];
 
       pageUrl.textContent = formatPageLabel(rawUrl);
@@ -305,7 +334,8 @@
       if (activeTabId === null) {
         setDiagnostics("warning", rawUrl, "This tab does not expose a normal webpage to the extension.");
         setStatus("warning", "Open a normal webpage to use autofill.");
-        renderProfiles(locallyMatchedProfiles, false);
+        lastFilledProfileId = null;
+        renderProfiles(locallyMatchedProfiles, false, lastFilledProfileId);
         fillButton.disabled = true;
         return;
       }
@@ -315,7 +345,8 @@
         setDiagnostics("warning", rawUrl, "This is a browser or extension page. Chrome does not allow autofill scripts to run here.");
         setStatus("warning", "Open the real controller page, not a browser internal page.");
         matchedProfiles = locallyMatchedProfiles;
-        renderProfiles(matchedProfiles, false);
+        lastFilledProfileId = null;
+        renderProfiles(matchedProfiles, false, lastFilledProfileId);
         fillButton.disabled = true;
         return;
       }
@@ -326,15 +357,24 @@
 
         pageSupportsMessages = true;
         matchedProfiles = status && Array.isArray(status.matchedProfiles) ? status.matchedProfiles : locallyMatchedProfiles;
-        renderProfiles(matchedProfiles, true);
+        lastFilledProfileId =
+          status && status.lastResult && status.lastResult.ok && status.lastResult.profileId
+            ? status.lastResult.profileId
+            : null;
+        renderProfiles(matchedProfiles, true, lastFilledProfileId);
 
         if (status && status.autoFillDone) {
           setStatus("success", "Autofill already ran on this page.");
           setDiagnostics("success", rawUrl, "Pattern matched and the page allowed the extension to run.");
         } else if (matchedProfiles.length > 0) {
+          const matchedPattern = matchedProfiles[0] && matchedProfiles[0].matchedPattern
+            ? matchedProfiles[0].matchedPattern
+            : "";
           const reason = status && status.lastResult && status.lastResult.ok === false
             ? "Pattern matched. If fields stay empty, this page probably needs Advanced selectors."
-            : "Pattern matched on this exact URL.";
+            : matchedPattern
+              ? "Pattern matched on this exact URL via: " + matchedPattern
+              : "Pattern matched on this exact URL.";
           setStatus("info", "Profile matched. You can fill manually if needed.");
           setDiagnostics(
             "info",
@@ -352,7 +392,8 @@
       } catch (error) {
         pageSupportsMessages = false;
         matchedProfiles = locallyMatchedProfiles;
-        renderProfiles(matchedProfiles, false);
+        lastFilledProfileId = null;
+        renderProfiles(matchedProfiles, false, lastFilledProfileId);
 
         if (locallyMatchedProfiles.length > 0) {
           setStatus("warning", "A pattern matches, but this page is blocking extension scripts.");
@@ -371,13 +412,14 @@
     } catch (error) {
       setStatus("warning", "Open one of the controller pages to use the extension.");
       setDiagnostics("warning", "", "Could not inspect the current tab.");
-      renderProfiles([], false);
+      lastFilledProfileId = null;
+      renderProfiles([], false, lastFilledProfileId);
       fillButton.disabled = true;
     }
   }
 
   fillButton.addEventListener("click", async () => {
-    await runFill(matchedProfiles.length > 0 ? matchedProfiles[0].id : null);
+    await runFill(null);
   });
 
   if (diagnosticsToggleButton) {

@@ -5,10 +5,19 @@
   const THEME_STORAGE_KEY = "themePreference";
   const AUTOSAVE_STORAGE_KEY = "autoSaveEnabled";
   const VIEW_MODE_STORAGE_KEY = "detailedViewEnabled";
-  const INITIAL_PROFILE_COUNT = 1;
+  const SORT_BY_STORAGE_KEY = "profileSortBy";
+  const SORT_DIRECTION_STORAGE_KEY = "profileSortDirection";
+  const MATCH_PREFERENCE_STORAGE_KEY = "matchPreferenceSettings";
+  const INITIAL_PROFILE_COUNT = 0;
   const DEFAULT_THEME = "dark";
   const DEFAULT_AUTOSAVE = true;
   const DEFAULT_DETAILED_VIEW = true;
+  const DEFAULT_SORT_BY = "manual";
+  const DEFAULT_SORT_DIRECTION = "asc";
+  const MATCH_PRIORITY_RULE_IDS = ["patternSpecificity", "creationDate", "savedData"];
+  const DEFAULT_MATCH_PRIORITY_RULE_ORDER = ["patternSpecificity", "savedData", "creationDate"];
+  const DEFAULT_MATCH_CREATION_DATE_MODE = "newest";
+  const DEFAULT_MATCH_SAVED_DATA_MODE = "complete";
   const ENCRYPTED_EXPORT_FORMAT = "windfill-encrypted-export";
   const ENCRYPTED_EXPORT_VERSION = 1;
   const EXPORT_KDF_ITERATIONS = 250000;
@@ -69,12 +78,16 @@
   }
 
   function createEmptyProfile(index) {
+    const now = new Date().toISOString();
     return {
       id: makeId(),
       name: "Controller " + index,
+      createdAt: now,
+      lastModifiedAt: now,
       matchPattern: "",
       username: "",
       password: "",
+      notes: "",
       usernameSelector: "",
       passwordSelector: "",
       submitSelector: "",
@@ -92,19 +105,42 @@
   function normalizeProfile(profile, index) {
     const source = profile && typeof profile === "object" ? profile : {};
     const fallback = createEmptyProfile(index + 1);
+    const createdAtTimestamp = Date.parse(source.createdAt);
+    const lastModifiedAtTimestamp = Date.parse(source.lastModifiedAt);
 
     return {
       id: typeof source.id === "string" && source.id.trim() ? source.id.trim() : fallback.id,
       name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : fallback.name,
+      createdAt: Number.isFinite(createdAtTimestamp) ? new Date(createdAtTimestamp).toISOString() : fallback.createdAt,
+      lastModifiedAt: Number.isFinite(lastModifiedAtTimestamp)
+        ? new Date(lastModifiedAtTimestamp).toISOString()
+        : (
+          Number.isFinite(createdAtTimestamp)
+            ? new Date(createdAtTimestamp).toISOString()
+            : fallback.lastModifiedAt
+        ),
       matchPattern: typeof source.matchPattern === "string" ? source.matchPattern.trim() : "",
       username: typeof source.username === "string" ? source.username : "",
       password: typeof source.password === "string" ? source.password : "",
+      notes: typeof source.notes === "string" ? source.notes : "",
       usernameSelector: typeof source.usernameSelector === "string" ? source.usernameSelector.trim() : "",
       passwordSelector: typeof source.passwordSelector === "string" ? source.passwordSelector.trim() : "",
       submitSelector: typeof source.submitSelector === "string" ? source.submitSelector.trim() : "",
       autoSubmit: Boolean(source.autoSubmit),
       enabled: source.enabled !== false,
       overwriteExisting: source.overwriteExisting !== false
+    };
+  }
+
+  function cloneProfile(profile, index) {
+    const normalized = normalizeProfile(profile, Number.isFinite(index) ? index : 0);
+    const now = new Date().toISOString();
+    return {
+      ...normalized,
+      id: makeId(),
+      createdAt: now,
+      lastModifiedAt: now,
+      name: normalized.name ? normalized.name + " copy" : "Controller " + ((index || 0) + 1)
     };
   }
 
@@ -147,9 +183,87 @@
     return value !== false;
   }
 
+  function normalizeSortBy(value) {
+    return value === "name" || value === "lastModifiedAt" || value === "manual"
+      ? value
+      : DEFAULT_SORT_BY;
+  }
+
+  function normalizeSortDirection(value) {
+    return value === "desc" || value === "asc"
+      ? value
+      : DEFAULT_SORT_DIRECTION;
+  }
+
+  function normalizeMatchRuleOrder(value) {
+    const source = Array.isArray(value) ? value : [];
+    const unique = [];
+
+    source.forEach((ruleId) => {
+      if (!MATCH_PRIORITY_RULE_IDS.includes(ruleId) || unique.includes(ruleId)) {
+        return;
+      }
+
+      unique.push(ruleId);
+    });
+
+    MATCH_PRIORITY_RULE_IDS.forEach((ruleId) => {
+      if (!unique.includes(ruleId)) {
+        unique.push(ruleId);
+      }
+    });
+
+    return unique;
+  }
+
+  function normalizeMatchCreationDateMode(value) {
+    return value === "oldest" || value === "newest"
+      ? value
+      : DEFAULT_MATCH_CREATION_DATE_MODE;
+  }
+
+  function normalizeMatchSavedDataMode(value) {
+    return value === "missing" || value === "complete"
+      ? value
+      : DEFAULT_MATCH_SAVED_DATA_MODE;
+  }
+
+  function createDefaultMatchPreferenceSettings() {
+    return {
+      ruleOrder: [...DEFAULT_MATCH_PRIORITY_RULE_ORDER],
+      creationDateMode: DEFAULT_MATCH_CREATION_DATE_MODE,
+      savedDataMode: DEFAULT_MATCH_SAVED_DATA_MODE
+    };
+  }
+
+  function normalizeMatchPreferenceSettings(value) {
+    const source = value && typeof value === "object" ? value : {};
+
+    return {
+      ruleOrder: normalizeMatchRuleOrder(source.ruleOrder),
+      creationDateMode: normalizeMatchCreationDateMode(source.creationDateMode),
+      savedDataMode: normalizeMatchSavedDataMode(source.savedDataMode)
+    };
+  }
+
   async function loadDetailedViewPreference() {
     const result = await storageGet([VIEW_MODE_STORAGE_KEY]);
     return normalizeDetailedViewPreference(result[VIEW_MODE_STORAGE_KEY]);
+  }
+
+  async function loadSortByPreference() {
+    const result = await storageGet([SORT_BY_STORAGE_KEY]);
+    return normalizeSortBy(result[SORT_BY_STORAGE_KEY]);
+  }
+
+  async function loadSortDirectionPreference() {
+    const result = await storageGet([SORT_DIRECTION_STORAGE_KEY]);
+    return normalizeSortDirection(result[SORT_DIRECTION_STORAGE_KEY]);
+  }
+
+  async function loadMatchPreferenceSettings() {
+    const result = await storageGet([MATCH_PREFERENCE_STORAGE_KEY]);
+    return normalizeMatchPreferenceSettings(result[MATCH_PREFERENCE_STORAGE_KEY]);
   }
 
   async function saveTheme(theme) {
@@ -172,6 +286,30 @@
     const normalizedValue = normalizeDetailedViewPreference(value);
     await storageSet({
       [VIEW_MODE_STORAGE_KEY]: normalizedValue
+    });
+    return normalizedValue;
+  }
+
+  async function saveSortByPreference(value) {
+    const normalizedValue = normalizeSortBy(value);
+    await storageSet({
+      [SORT_BY_STORAGE_KEY]: normalizedValue
+    });
+    return normalizedValue;
+  }
+
+  async function saveSortDirectionPreference(value) {
+    const normalizedValue = normalizeSortDirection(value);
+    await storageSet({
+      [SORT_DIRECTION_STORAGE_KEY]: normalizedValue
+    });
+    return normalizedValue;
+  }
+
+  async function saveMatchPreferenceSettings(value) {
+    const normalizedValue = normalizeMatchPreferenceSettings(value);
+    await storageSet({
+      [MATCH_PREFERENCE_STORAGE_KEY]: normalizedValue
     });
     return normalizedValue;
   }
@@ -428,16 +566,79 @@
     return splitPatterns(profile.matchPattern).some((pattern) => matchesSinglePattern(pattern, currentUrl));
   }
 
+  function getMatchedPattern(profile, currentUrl) {
+    const patterns = splitPatterns(profile && profile.matchPattern);
+    const matches = patterns.filter((pattern) => matchesSinglePattern(pattern, currentUrl));
+
+    if (matches.length === 0) {
+      return "";
+    }
+
+    return matches.sort((left, right) => profileScore({ matchPattern: right }) - profileScore({ matchPattern: left }))[0];
+  }
+
   function profileScore(profile) {
     const pattern = profile && typeof profile.matchPattern === "string" ? profile.matchPattern : "";
     const wildcardPenalty = (pattern.match(/\*/g) || []).length * 10;
     return pattern.length - wildcardPenalty;
   }
 
-  function findMatchingProfiles(currentUrl, profiles) {
+  function getSavedDataScore(profile) {
+    let score = 0;
+
+    if (profile && typeof profile.username === "string" && profile.username !== "") {
+      score += 1;
+    }
+
+    if (profile && typeof profile.password === "string" && profile.password !== "") {
+      score += 1;
+    }
+
+    return score;
+  }
+
+  function compareProfilesByMatchPreferences(left, right, preferences) {
+    const settings = normalizeMatchPreferenceSettings(preferences);
+
+    for (const ruleId of settings.ruleOrder) {
+      let comparison = 0;
+
+      if (ruleId === "patternSpecificity") {
+        comparison =
+          profileScore({ matchPattern: right.matchedPattern || right.matchPattern }) -
+          profileScore({ matchPattern: left.matchedPattern || left.matchPattern });
+      } else if (ruleId === "creationDate") {
+        const leftTime = Date.parse(left.lastModifiedAt);
+        const rightTime = Date.parse(right.lastModifiedAt);
+        const normalizedLeftTime = Number.isFinite(leftTime) ? leftTime : 0;
+        const normalizedRightTime = Number.isFinite(rightTime) ? rightTime : 0;
+        comparison = settings.creationDateMode === "oldest"
+          ? normalizedLeftTime - normalizedRightTime
+          : normalizedRightTime - normalizedLeftTime;
+      } else if (ruleId === "savedData") {
+        const leftScore = getSavedDataScore(left);
+        const rightScore = getSavedDataScore(right);
+        comparison = settings.savedDataMode === "missing"
+          ? leftScore - rightScore
+          : rightScore - leftScore;
+      }
+
+      if (comparison !== 0) {
+        return comparison;
+      }
+    }
+
+    return 0;
+  }
+
+  function findMatchingProfiles(currentUrl, profiles, preferences) {
     return normalizeProfiles(profiles)
       .filter((profile) => matchesProfile(profile, currentUrl))
-      .sort((left, right) => profileScore(right) - profileScore(left));
+      .map((profile) => ({
+        ...profile,
+        matchedPattern: getMatchedPattern(profile, currentUrl)
+      }))
+      .sort((left, right) => compareProfilesByMatchPreferences(left, right, preferences));
   }
 
   function isVisibleElement(element) {
@@ -630,6 +831,81 @@
     }
 
     return form;
+  }
+
+  function describeElement(element) {
+    if (!element || !(element instanceof HTMLElement)) {
+      return "";
+    }
+
+    const tagName = element.tagName.toLowerCase();
+    if (element.id) {
+      return tagName + "#" + element.id;
+    }
+
+    if (element.getAttribute("name")) {
+      return tagName + "[name=\"" + element.getAttribute("name") + "\"]";
+    }
+
+    if (element.getAttribute("type")) {
+      return tagName + "[type=\"" + element.getAttribute("type") + "\"]";
+    }
+
+    return tagName;
+  }
+
+  function getExplicitVisibleMatch(selector, root) {
+    const explicitMatch = safeQuery(selector, root);
+    return explicitMatch && isVisibleElement(explicitMatch) ? explicitMatch : null;
+  }
+
+  function testProfileSelectors(profile, root) {
+    const queryRoot = root || document;
+    const targetProfile = normalizeProfile(profile, 0);
+    const usernameExplicit = targetProfile.usernameSelector
+      ? getExplicitVisibleMatch(targetProfile.usernameSelector, queryRoot)
+      : null;
+    const passwordExplicit = targetProfile.passwordSelector
+      ? getExplicitVisibleMatch(targetProfile.passwordSelector, queryRoot)
+      : null;
+    const usernameField = usernameExplicit || pickBest(queryRoot.querySelectorAll("input"), scoreUsernameField);
+    const passwordField = passwordExplicit || pickBest(queryRoot.querySelectorAll("input"), scorePasswordField);
+    const needsSubmit = Boolean(targetProfile.autoSubmit || targetProfile.submitSelector);
+    const submitExplicit = targetProfile.submitSelector
+      ? getExplicitVisibleMatch(targetProfile.submitSelector, queryRoot)
+      : null;
+    const submitTarget = needsSubmit
+      ? submitExplicit || findSubmitTarget(targetProfile, passwordField, queryRoot)
+      : null;
+
+    return {
+      ok: Boolean(usernameField && passwordField && (!needsSubmit || submitTarget)),
+      username: {
+        selector: targetProfile.usernameSelector,
+        usingSelector: Boolean(targetProfile.usernameSelector),
+        explicitMatched: Boolean(usernameExplicit),
+        found: Boolean(usernameField),
+        source: usernameExplicit ? "selector" : usernameField ? "auto" : "missing",
+        matchedElement: describeElement(usernameField)
+      },
+      password: {
+        selector: targetProfile.passwordSelector,
+        usingSelector: Boolean(targetProfile.passwordSelector),
+        explicitMatched: Boolean(passwordExplicit),
+        found: Boolean(passwordField),
+        source: passwordExplicit ? "selector" : passwordField ? "auto" : "missing",
+        matchedElement: describeElement(passwordField)
+      },
+      submit: {
+        selector: targetProfile.submitSelector,
+        usingSelector: Boolean(targetProfile.submitSelector),
+        explicitMatched: Boolean(submitExplicit),
+        required: needsSubmit,
+        found: Boolean(submitTarget),
+        source: submitExplicit ? "selector" : submitTarget ? "auto" : "missing",
+        matchedElement: describeElement(submitTarget)
+      }
+    };
   }
 
   function findValueSetter(element) {
@@ -857,22 +1133,42 @@
     THEME_STORAGE_KEY,
     AUTOSAVE_STORAGE_KEY,
     VIEW_MODE_STORAGE_KEY,
+    SORT_BY_STORAGE_KEY,
+    SORT_DIRECTION_STORAGE_KEY,
+    MATCH_PREFERENCE_STORAGE_KEY,
     INITIAL_PROFILE_COUNT,
     DEFAULT_THEME,
     DEFAULT_AUTOSAVE,
     DEFAULT_DETAILED_VIEW,
+    DEFAULT_SORT_BY,
+    DEFAULT_SORT_DIRECTION,
+    MATCH_PRIORITY_RULE_IDS,
+    DEFAULT_MATCH_PRIORITY_RULE_ORDER,
+    DEFAULT_MATCH_CREATION_DATE_MODE,
+    DEFAULT_MATCH_SAVED_DATA_MODE,
     ENCRYPTED_EXPORT_FORMAT,
     ENCRYPTED_EXPORT_VERSION,
     createEmptyProfile,
     createSeedProfiles,
+    cloneProfile,
     normalizeProfile,
     normalizeProfiles,
     loadProfiles,
     normalizeTheme,
     normalizeAutoSavePreference,
+    normalizeSortBy,
+    normalizeSortDirection,
+    normalizeMatchRuleOrder,
+    normalizeMatchCreationDateMode,
+    normalizeMatchSavedDataMode,
+    createDefaultMatchPreferenceSettings,
+    normalizeMatchPreferenceSettings,
     loadTheme,
     loadAutoSavePreference,
     loadDetailedViewPreference,
+    loadSortByPreference,
+    loadSortDirectionPreference,
+    loadMatchPreferenceSettings,
     saveProfiles,
     encryptProfilesExport,
     decryptProfilesExport,
@@ -881,11 +1177,16 @@
     saveTheme,
     saveAutoSavePreference,
     saveDetailedViewPreference,
+    saveSortByPreference,
+    saveSortDirectionPreference,
+    saveMatchPreferenceSettings,
     applyTheme,
     ensureSeedProfiles,
     splitPatterns,
+    getMatchedPattern,
     matchesProfile,
     findMatchingProfiles,
+    testProfileSelectors,
     fillProfile,
     fillProfileFromContext
   };
