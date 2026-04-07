@@ -9,6 +9,10 @@
   const DEFAULT_THEME = "dark";
   const DEFAULT_AUTOSAVE = true;
   const DEFAULT_DETAILED_VIEW = true;
+  const ENCRYPTED_EXPORT_FORMAT = "windfill-encrypted-export";
+  const ENCRYPTED_EXPORT_VERSION = 1;
+  const EXPORT_KDF_ITERATIONS = 250000;
+  const EXPORT_KDF_HASH = "SHA-256";
 
   const USERNAME_KEYWORDS = [
     "user",
@@ -187,6 +191,177 @@
     await storageSet({
       [STORAGE_KEY]: normalizeProfiles(profiles)
     });
+  }
+
+  function getCryptoApi() {
+    if (!global.crypto || !global.crypto.subtle) {
+      throw new Error("Web Crypto API unavailable.");
+    }
+
+    return global.crypto;
+  }
+
+  function encodeUtf8(text) {
+    return new TextEncoder().encode(String(text || ""));
+  }
+
+  function decodeUtf8(bytes) {
+    return new TextDecoder().decode(bytes);
+  }
+
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 0x8000;
+
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      const chunk = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+
+    return global.btoa(binary);
+  }
+
+  function base64ToBytes(value) {
+    const binary = global.atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    return bytes;
+  }
+
+  async function deriveExportKey(passphrase, salt, usages) {
+    const cryptoApi = getCryptoApi();
+    const keyMaterial = await cryptoApi.subtle.importKey(
+      "raw",
+      encodeUtf8(passphrase),
+      "PBKDF2",
+      false,
+      ["deriveKey"]
+    );
+
+    return cryptoApi.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: EXPORT_KDF_ITERATIONS,
+        hash: EXPORT_KDF_HASH
+      },
+      keyMaterial,
+      {
+        name: "AES-GCM",
+        length: 256
+      },
+      false,
+      usages
+    );
+  }
+
+  function isEncryptedExportPayload(payload) {
+    return Boolean(
+      payload &&
+      typeof payload === "object" &&
+      payload.format === ENCRYPTED_EXPORT_FORMAT &&
+      Number(payload.version) === ENCRYPTED_EXPORT_VERSION &&
+      typeof payload.salt === "string" &&
+      typeof payload.iv === "string" &&
+      typeof payload.ciphertext === "string"
+    );
+  }
+
+  async function encryptProfilesExport(profiles, passphrase) {
+    const normalizedProfiles = normalizeProfiles(profiles);
+    const trimmedPassphrase = String(passphrase || "");
+
+    if (!trimmedPassphrase) {
+      throw new Error("A passphrase is required to encrypt this export.");
+    }
+
+    const cryptoApi = getCryptoApi();
+    const salt = cryptoApi.getRandomValues(new Uint8Array(16));
+    const iv = cryptoApi.getRandomValues(new Uint8Array(12));
+    const key = await deriveExportKey(trimmedPassphrase, salt, ["encrypt"]);
+    const plaintext = encodeUtf8(JSON.stringify(normalizedProfiles));
+    const ciphertextBuffer = await cryptoApi.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: iv
+      },
+      key,
+      plaintext
+    );
+
+    return {
+      format: ENCRYPTED_EXPORT_FORMAT,
+      version: ENCRYPTED_EXPORT_VERSION,
+      cipher: "AES-GCM-256",
+      kdf: "PBKDF2-SHA-256",
+      iterations: EXPORT_KDF_ITERATIONS,
+      salt: bytesToBase64(salt),
+      iv: bytesToBase64(iv),
+      ciphertext: bytesToBase64(new Uint8Array(ciphertextBuffer))
+    };
+  }
+
+  async function decryptProfilesExport(payload, passphrase) {
+    const trimmedPassphrase = String(passphrase || "");
+
+    if (!trimmedPassphrase) {
+      throw new Error("A passphrase is required to decrypt this export.");
+    }
+
+    if (!isEncryptedExportPayload(payload)) {
+      throw new Error("This file is not a supported WindFill encrypted export.");
+    }
+
+    try {
+      const cryptoApi = getCryptoApi();
+      const salt = base64ToBytes(payload.salt);
+      const iv = base64ToBytes(payload.iv);
+      const ciphertext = base64ToBytes(payload.ciphertext);
+      const key = await deriveExportKey(trimmedPassphrase, salt, ["decrypt"]);
+      const plaintextBuffer = await cryptoApi.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        ciphertext
+      );
+      const parsed = JSON.parse(decodeUtf8(new Uint8Array(plaintextBuffer)));
+
+      if (!Array.isArray(parsed)) {
+        throw new Error("Encrypted export payload did not contain a profile list.");
+      }
+
+      return normalizeProfiles(parsed);
+    } catch (error) {
+      throw new Error("Could not decrypt the WindFill export. Check the passphrase and file.");
+    }
+  }
+
+  function getIncompleteProfileDetails(profile) {
+    const normalized = normalizeProfile(profile, 0);
+    const missing = [];
+
+    if (splitPatterns(normalized.matchPattern).length === 0) {
+      missing.push("pattern");
+    }
+
+    if (!normalized.username) {
+      missing.push("username");
+    }
+
+    if (!normalized.password) {
+      missing.push("password");
+    }
+
+    return {
+      complete: missing.length === 0,
+      missing: missing
+    };
   }
 
   async function ensureSeedProfiles() {
@@ -686,6 +861,8 @@
     DEFAULT_THEME,
     DEFAULT_AUTOSAVE,
     DEFAULT_DETAILED_VIEW,
+    ENCRYPTED_EXPORT_FORMAT,
+    ENCRYPTED_EXPORT_VERSION,
     createEmptyProfile,
     createSeedProfiles,
     normalizeProfile,
@@ -697,6 +874,10 @@
     loadAutoSavePreference,
     loadDetailedViewPreference,
     saveProfiles,
+    encryptProfilesExport,
+    decryptProfilesExport,
+    isEncryptedExportPayload,
+    getIncompleteProfileDetails,
     saveTheme,
     saveAutoSavePreference,
     saveDetailedViewPreference,

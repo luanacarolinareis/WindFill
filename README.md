@@ -20,6 +20,7 @@ Repository status: public and source-available under `PolyForm Noncommercial 1.0
 - [Advanced selectors](#advanced-selectors)
 - [Test pages](#test-pages)
 - [Troubleshooting](#troubleshooting)
+- [Security policy](#security-policy)
 - [License and trademarks](#license-and-trademarks)
 
 ## Preview
@@ -42,9 +43,9 @@ WindFill currently provides:
 - Multiple patterns per profile.
 - Optional auto-submit after fields are filled.
 - A popup with matching profiles, manual fill, and page diagnostics.
-- An options page with search, simple/detailed views, autosave, and reset.
+- An options page with search, simple/detailed views, autosave, reset, and incomplete-profile indicators.
 - A built-in troubleshooting page.
-- JSON import/export for profile transfer between machines.
+- Encrypted JSON export/import for profile transfer between machines, with legacy plaintext JSON import support.
 - A right-click context menu action to trigger fill from the page.
 - Local test pages for validation without real controller systems.
 
@@ -63,14 +64,16 @@ The statements below describe the current implementation in this repository.
 ### Data handling
 
 - Profiles and credentials are stored locally in `chrome.storage.local`.
-- Exported JSON files contain profile data, including credentials, in plaintext.
-- WindFill does not add its own encryption layer to stored credentials.
+- WindFill can export and import encrypted JSON files protected by a user-supplied passphrase.
+- Legacy plaintext JSON profile files are still accepted on import for backwards compatibility.
+- WindFill does not add its own encryption layer to credentials already stored in `chrome.storage.local`.
 - Protection of local data therefore depends on the security of the Windows account, Chrome profile, disk, and local machine controls.
 
 ### Recommended operational controls
 
 - Use a dedicated Chrome profile for operational access.
-- Treat exported JSON files as sensitive secrets.
+- Prefer encrypted WindFill exports over legacy plaintext JSON files.
+- Treat exported JSON files and passphrases as sensitive secrets.
 - Limit access to machines where WindFill profiles are configured.
 - Prefer least-privilege controller accounts where possible.
 - Review and reload the unpacked extension only from trusted local source.
@@ -155,6 +158,7 @@ The options page is the main configuration surface.
 - Search by controller name, pattern, username, or selector text.
 - Switch between `Simple` and `Detailed` profile views.
 - Enable or disable `Autosave`.
+- See incomplete-profile indicators when a pattern, username, or password is missing.
 - Use the save button for an immediate manual save.
 - Use `Reset` to restore the starter list and default UI settings.
 
@@ -187,7 +191,8 @@ The options page can export the current profile list to JSON and import it later
 1. Open the options page.
 2. Make sure the desired profiles are already saved.
 3. Click `Export JSON`.
-4. The browser downloads `controller-autofill-profiles.json`.
+4. Enter and confirm a passphrase for the export file.
+5. The browser downloads `windfill-profiles.encrypted.json`.
 
 Typical use cases:
 
@@ -200,15 +205,33 @@ Typical use cases:
 1. Open the options page.
 2. Click `Import JSON`.
 3. Select a previously exported `.json` file.
-4. WindFill loads the profiles and saves them locally.
+4. If the file is encrypted, enter the passphrase used during export.
+5. WindFill loads the profiles and saves them locally.
 
 Important notes:
 
 - Import replaces the current in-memory list shown in the options page.
 - Imported profiles are then saved to `chrome.storage.local`.
-- Invalid JSON or non-array payloads are rejected.
+- Encrypted WindFill exports are the default format.
+- Legacy plaintext JSON arrays are still supported on import.
+- Invalid JSON or unsupported payloads are rejected.
 
-### Example format
+### Encrypted export example
+
+```json
+{
+  "format": "windfill-encrypted-export",
+  "version": 1,
+  "cipher": "AES-GCM-256",
+  "kdf": "PBKDF2-SHA-256",
+  "iterations": 250000,
+  "salt": "<base64>",
+  "iv": "<base64>",
+  "ciphertext": "<base64>"
+}
+```
+
+### Legacy plaintext example
 
 ```json
 [
@@ -282,6 +305,10 @@ For test-page-specific instructions, see [test-pages/README.md](test-pages/READM
 ## Troubleshooting
 
 For common issues and quick fixes, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+## Security policy
+
+For deployment guidance, data-handling notes, and vulnerability reporting expectations, see [SECURITY.md](SECURITY.md).
 
 ## License and trademarks
 

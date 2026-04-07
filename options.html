@@ -87,14 +87,14 @@
             id="exportButton"
             class="button ghost transfer-button"
             type="button"
-            title="Download all saved controller profiles as a JSON file"
+            title="Download all saved controller profiles as an encrypted JSON file"
           >
             Export JSON
           </button>
           <label
             class="button ghost file-button transfer-button"
             for="importInput"
-            title="Import controller profiles from a JSON file"
+            title="Import encrypted WindFill JSON files or legacy plaintext profile JSON"
           >
             Import JSON
           </label>
@@ -184,9 +184,10 @@
     <template id="profileTemplate">
       <article class="profile-card">
         <div class="card-header">
-          <div>
+          <div class="card-title-wrap">
             <p class="card-index"></p>
             <h2 class="card-title"></h2>
+            <p class="profile-health-copy" hidden></p>
           </div>
           <div class="card-actions">
             <button class="button mini ghost profile-visibility-button" type="button" aria-expanded="true">Collapse</button>
@@ -198,6 +199,7 @@
           <p class="profile-summary-line profile-summary-pattern"></p>
           <p class="profile-summary-line profile-summary-secondary"></p>
           <div class="profile-summary-meta">
+            <span class="summary-pill summary-pill-health" hidden></span>
             <span class="summary-pill summary-pill-enabled"></span>
             <span class="summary-pill summary-pill-submit"></span>
           </div>
@@ -211,20 +213,20 @@
             </label>
 
             <label class="pattern-field full-span">
-              <span>IP / URL patterns</span>
+              <span class="field-label">IP / URL patterns</span>
               <div class="pattern-list" data-pattern-list></div>
               <div class="pattern-actions">
                 <button class="button mini ghost pattern-add-button" type="button">+ Add pattern</button>
               </div>
             </label>
 
-            <label>
-              <span>Username</span>
+            <label class="username-field">
+              <span class="field-label">Username</span>
               <input data-field="username" type="text" placeholder="admin">
             </label>
 
             <label class="password-field">
-              <span>Password</span>
+              <span class="field-label">Password</span>
               <div class="password-input-wrap">
                 <input data-field="password" type="password" placeholder="password">
                 <button class="password-toggle-button" type="button" aria-label="Show password" aria-pressed="false">

@@ -125,6 +125,15 @@
       : "inline-status is-hidden";
   }
 
+  function showWarningDialog(message) {
+    const normalizedMessage = typeof message === "string" ? message.trim() : "";
+    if (!normalizedMessage) {
+      return;
+    }
+
+    window.alert(normalizedMessage);
+  }
+
   function queueSave(task) {
     saveQueue = saveQueue
       .catch(() => {})
@@ -165,6 +174,56 @@
     return state.profiles.filter((profile) => getProfileSearchText(profile).includes(normalizedQuery));
   }
 
+  function formatHumanList(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return "";
+    }
+
+    if (items.length === 1) {
+      return items[0];
+    }
+
+    if (items.length === 2) {
+      return items[0] + " and " + items[1];
+    }
+
+    return items.slice(0, -1).join(", ") + ", and " + items[items.length - 1];
+  }
+
+  function getProfileCompleteness(profile) {
+    return shared.getIncompleteProfileDetails(profile);
+  }
+
+  function getProfileHealthText(profile) {
+    const completeness = getProfileCompleteness(profile);
+    if (completeness.complete) {
+      return "";
+    }
+
+    return "Missing " + formatHumanList(completeness.missing);
+  }
+
+  function setFieldMissingState(fieldElement, missing, title) {
+    if (!fieldElement) {
+      return;
+    }
+
+    fieldElement.classList.toggle("is-missing", missing);
+    fieldElement.title = missing ? title : "";
+  }
+
+  function applyIncompleteFieldHighlights(card, profile) {
+    const completeness = getProfileCompleteness(profile);
+    const missing = completeness.missing;
+    const patternField = card.querySelector(".pattern-field");
+    const usernameField = card.querySelector(".username-field");
+    const passwordField = card.querySelector(".password-field");
+
+    setFieldMissingState(patternField, missing.includes("pattern"), "Add at least one IP or URL pattern.");
+    setFieldMissingState(usernameField, missing.includes("username"), "Add a username to complete this profile.");
+    setFieldMissingState(passwordField, missing.includes("password"), "Add a password to complete this profile.");
+  }
+
   function updateSearchControls() {
     if (searchInput && searchInput.value !== state.searchQuery) {
       searchInput.value = state.searchQuery;
@@ -193,6 +252,64 @@
     saveButton.setAttribute("aria-label", saveMessage);
     saveButton.classList.toggle("manual-save-mode", !state.autoSaveEnabled);
     saveButton.classList.toggle("has-pending-save", hasUnsavedChanges);
+  }
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Could not read the selected file."));
+
+      reader.readAsText(file);
+    });
+  }
+
+  function promptForEncryptedExportPassphrase() {
+    const passphrase = window.prompt(
+      "Enter a passphrase to encrypt this WindFill export file."
+    );
+
+    if (passphrase === null) {
+      return null;
+    }
+
+    if (!String(passphrase).trim()) {
+      showWarningDialog("Export cancelled. Enter a non-empty passphrase to encrypt the file.");
+      return null;
+    }
+
+    const confirmation = window.prompt(
+      "Confirm the passphrase for this encrypted WindFill export."
+    );
+
+    if (confirmation === null) {
+      return null;
+    }
+
+    if (passphrase !== confirmation) {
+      showWarningDialog("Passphrases did not match. Export cancelled.");
+      return null;
+    }
+
+    return passphrase;
+  }
+
+  function promptForImportPassphrase() {
+    const passphrase = window.prompt(
+      "Enter the passphrase used to encrypt this WindFill export."
+    );
+
+    if (passphrase === null) {
+      return null;
+    }
+
+    if (!String(passphrase).trim()) {
+      showWarningDialog("Import cancelled. Enter the export passphrase to continue.");
+      return null;
+    }
+
+    return passphrase;
   }
 
   function markUnsavedChanges() {
@@ -226,7 +343,7 @@
       try {
         await persistProfiles(options);
       } catch (error) {
-        setStatus("Could not save changes locally.", "warning");
+        showWarningDialog("Could not save changes locally.");
       }
     });
   }
@@ -295,6 +412,7 @@
     const updatedProfile = getProfileById(profileId);
     if (updatedProfile && card) {
       renderProfileSummary(card, updatedProfile);
+      applyIncompleteFieldHighlights(card, updatedProfile);
     }
     scheduleAutoSave();
   }
@@ -342,9 +460,13 @@
   function renderProfileSummary(card, profile) {
     const summaryPattern = card.querySelector(".profile-summary-pattern");
     const summarySecondary = card.querySelector(".profile-summary-secondary");
+    const summaryHealth = card.querySelector(".summary-pill-health");
     const summaryEnabled = card.querySelector(".summary-pill-enabled");
     const summarySubmit = card.querySelector(".summary-pill-submit");
+    const healthCopy = card.querySelector(".profile-health-copy");
     const patterns = shared.splitPatterns(profile.matchPattern);
+    const completeness = getProfileCompleteness(profile);
+    const healthText = getProfileHealthText(profile);
 
     if (summaryPattern) {
       if (patterns.length === 0) {
@@ -355,12 +477,36 @@
       }
     }
 
-    if (summarySecondary) {
+    if (false && summarySecondary) {
       const secondaryParts = [];
       secondaryParts.push(
         patterns.length === 0 ? "No patterns saved" : patterns.length === 1 ? "1 pattern" : patterns.length + " patterns"
       );
       secondaryParts.push(profile.username ? "Username: " + profile.username : "No username saved");
+      summarySecondary.textContent = secondaryParts.join(" · ");
+    }
+
+    if (healthCopy) {
+      healthCopy.hidden = true;
+      healthCopy.textContent = "";
+    }
+
+    if (summaryHealth) {
+      summaryHealth.hidden = completeness.complete;
+      summaryHealth.textContent = completeness.complete ? "" : "▲ Incomplete";
+      summaryHealth.textContent = completeness.complete ? "" : "Incomplete";
+      summaryHealth.dataset.state = completeness.complete ? "neutral" : "warning";
+      summaryHealth.title = completeness.complete ? "" : healthText;
+    }
+
+    if (summarySecondary) {
+      const secondaryParts = [];
+      secondaryParts.push(
+        patterns.length === 0 ? "No patterns saved" : patterns.length === 1 ? "1 pattern" : patterns.length + " patterns"
+      );
+      if (profile.username) {
+        secondaryParts.push("Username: " + profile.username);
+      }
       summarySecondary.textContent = secondaryParts.join(" · ");
     }
 
@@ -373,6 +519,9 @@
       summarySubmit.textContent = profile.autoSubmit ? "Auto submit" : "Manual submit";
       summarySubmit.dataset.state = profile.autoSubmit ? "enabled" : "neutral";
     }
+
+    card.classList.toggle("is-incomplete", !completeness.complete);
+    card.title = completeness.complete ? "" : healthText;
   }
 
   function applyProfileCollapseState(card, profileId) {
@@ -440,6 +589,7 @@
       renderProfileSummary(card, profile);
       applyProfileCollapseState(card, profile.id);
       renderPatternRows(card, profile.id, shared.splitPatterns(profile.matchPattern));
+      applyIncompleteFieldHighlights(card, profile);
 
       const inputs = fragment.querySelectorAll("[data-field]");
       inputs.forEach((input) => {
@@ -458,6 +608,7 @@
           const updatedProfile = getProfileById(profile.id);
           if (updatedProfile) {
             renderProfileSummary(card, updatedProfile);
+            applyIncompleteFieldHighlights(card, updatedProfile);
           }
 
           if (field === "name") {
@@ -475,6 +626,7 @@
           const updatedProfile = getProfileById(profile.id);
           if (updatedProfile) {
             renderProfileSummary(card, updatedProfile);
+            applyIncompleteFieldHighlights(card, updatedProfile);
           }
 
           scheduleAutoSave();
@@ -552,41 +704,58 @@
     scheduleAutoSave();
   }
 
-  function exportProfiles() {
-    const blob = new Blob([JSON.stringify(state.profiles, null, 2)], {
-      type: "application/json"
-    });
+  async function exportProfiles() {
+    const passphrase = promptForEncryptedExportPassphrase();
+    if (passphrase === null) {
+      return;
+    }
 
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "controller-autofill-profiles.json";
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setStatus("Profiles exported.", "success");
+    try {
+      const encryptedPayload = await shared.encryptProfilesExport(normalizeCurrentProfiles(), passphrase);
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], {
+        type: "application/json"
+      });
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "windfill-profiles.encrypted.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setStatus("", "info");
+    } catch (error) {
+      showWarningDialog("Could not create the encrypted export file.");
+    }
   }
 
-  function importProfiles(file) {
-    const reader = new FileReader();
+  async function importProfiles(file) {
+    try {
+      const rawText = await readFileAsText(file);
+      const parsed = JSON.parse(rawText || "[]");
+      let importedProfiles = null;
 
-    reader.onload = async () => {
-      try {
-        const parsed = JSON.parse(String(reader.result || "[]"));
-        if (!Array.isArray(parsed)) {
-          throw new Error("JSON must contain an array of profiles.");
+      if (Array.isArray(parsed)) {
+        importedProfiles = parsed.map((profile, index) => shared.normalizeProfile(profile, index));
+      } else if (shared.isEncryptedExportPayload(parsed)) {
+        const passphrase = promptForImportPassphrase();
+        if (passphrase === null) {
+          return;
         }
 
-        state.profiles = parsed.map((profile, index) => shared.normalizeProfile(profile, index));
-        hasUnsavedChanges = true;
-        state.collapsedProfileIds.clear();
-        renderProfiles();
-        await saveProfilesNow({ rerender: false });
-      } catch (error) {
-        setStatus("Import failed. Check the JSON file format.", "warning");
+        importedProfiles = await shared.decryptProfilesExport(parsed, passphrase);
+      } else {
+        throw new Error("Import failed. Use an encrypted WindFill export or a legacy JSON array of profiles.");
       }
-    };
 
-    reader.readAsText(file);
+      clearAutoSaveTimer();
+      state.profiles = importedProfiles;
+      hasUnsavedChanges = true;
+      state.collapsedProfileIds.clear();
+      renderProfiles();
+      await saveProfilesNow({ rerender: false });
+    } catch (error) {
+      showWarningDialog(error && error.message ? error.message : "Import failed. Check the JSON file format.");
+    }
   }
 
   async function init() {
@@ -650,7 +819,9 @@
     await saveProfilesNow({ rerender: false });
   });
 
-  exportButton.addEventListener("click", exportProfiles);
+  exportButton.addEventListener("click", () => {
+    void exportProfiles();
+  });
 
   if (searchInput) {
     searchInput.addEventListener("input", () => {
@@ -688,7 +859,7 @@
       return;
     }
 
-    importProfiles(file);
+    await importProfiles(file);
     importInput.value = "";
   });
 
