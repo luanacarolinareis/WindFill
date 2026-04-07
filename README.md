@@ -4,9 +4,12 @@ Made by Luana Carolina Reis ♥
 
 WindFill is an offline Chrome extension to autofill `username` and `password` on login pages reached by IP or URL pattern.
 
+This repository is public, but it is not open source. The code is source-available under `PolyForm Noncommercial 1.0.0`, and commercial use requires separate written permission.
+
 ## Table of contents
 
 - [Preview](#preview)
+- [License and trademarks](#license-and-trademarks)
 - [What it does](#what-it-does)
 - [Clone the repository](#clone-the-repository)
 - [Install offline](#install-offline)
@@ -39,6 +42,21 @@ WindFill is an offline Chrome extension to autofill `username` and `password` on
 ### Popup
 
 <img src="popup-preview.png" alt="WindFill popup preview" width="360">
+
+## License and trademarks
+
+- Source code license: `PolyForm Noncommercial 1.0.0`
+- Required notices: [NOTICE](NOTICE)
+- Branding and naming rules: [TRADEMARKS.md](TRADEMARKS.md)
+
+This means:
+
+- the code stays publicly visible on GitHub
+- noncommercial use is allowed under the PolyForm terms
+- commercial use, resale, internal business deployment, or commercial derivative work requires separate written permission
+- the `WindFill` name, logo, icons, and branding are not licensed with the code
+
+See [LICENSE](LICENSE), [NOTICE](NOTICE), and [TRADEMARKS.md](TRADEMARKS.md).
 
 ## What it does
 
